@@ -2,14 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api/index.js'
 import { usePedidos } from '../usePedidos.js'
 import PdfView from '../components/PdfView.jsx'
+import Pasos from '../components/Pasos.jsx'
 import { aviso, duracion, esHoy, hace, hora, sonar } from '../util.js'
 
 const COLUMNAS = [
-  { id: 'revisando', titulo: 'Planta revisando', estados: ['por_revisar', 'en_revision'] },
-  { id: 'espera', titulo: 'En espera: te necesitan', estados: ['en_espera'] },
-  { id: 'facturar', titulo: 'Para facturar', estados: ['disponible'] },
-  { id: 'planta', titulo: 'En planta', estados: ['documento_listo', 'impreso'] },
-  { id: 'hechos', titulo: 'Despachados hoy', estados: ['despachado'] },
+  { id: 'revisando', titulo: 'Planta revisando', estados: ['por_revisar', 'en_revision'], color: 'azul' },
+  { id: 'espera', titulo: 'Planta tiene una novedad', estados: ['en_espera'], color: 'ambar' },
+  { id: 'facturar', titulo: 'Para facturar', estados: ['disponible'], color: 'lima' },
+  { id: 'planta', titulo: 'En planta', estados: ['documento_listo', 'impreso'], color: 'verde' },
+  { id: 'hechos', titulo: 'Despachados hoy', estados: ['despachado'], color: 'gris' },
 ]
 
 export default function Comercial() {
@@ -95,10 +96,10 @@ export default function Comercial() {
       <div className="tablero">
         {columnas.map((c) => (
           <section key={c.id} className={`columna col-${c.id}`}>
-            <h2>{c.titulo} <span className="cuenta">{c.lista.length}</span></h2>
+            <h2><span><i className={`punto-color ${c.color}`} />{c.titulo}</span> <span className="cuenta">{c.lista.length}</span></h2>
             {c.lista.length === 0 && <p className="nota">Vacío</p>}
             {c.lista.map((p) => (
-              <button key={p.id} className={`mini-tarjeta ${p.estado === 'en_espera' ? 'alerta' : ''}`} onClick={() => setAbierto(p.id)}>
+              <button key={p.id} className={`mini-tarjeta borde-${c.color} ${p.estado === 'en_espera' ? 'alerta' : ''}`} onClick={() => setAbierto(p.id)}>
                 <b>{p.cliente || 'Sin cliente'}</b>
                 {p.estado === 'en_espera' && <span className="cita">«{p.nota_planta}»</span>}
                 {p.estado === 'en_revision' && <span className="nota">Revisando en el depósito</span>}
@@ -228,6 +229,7 @@ function Detalle({ p, cerrar }) {
           </div>
           <button className="btn-texto" onClick={cerrar}>Cerrar</button>
         </div>
+        <Pasos p={p} />
 
         {p.estado === 'en_espera' && <div className="mensaje ambar"><b>Planta dice:</b> {p.nota_planta}</div>}
         {error && <p className="error">{error}</p>}
@@ -261,7 +263,7 @@ function Detalle({ p, cerrar }) {
                 <input type="file" accept="application/pdf" onChange={(e) => setFiscal({ ...fiscal, archivo: e.target.files[0] || null })} />
                 {fiscal.archivo ? fiscal.archivo.name : 'Adjuntar copia en PDF (opcional)'}
               </label>
-              <p className="nota">Planta verá que la factura está lista aquí en Comercial para buscarla.</p>
+              <p className="nota">Planta verá que la factura está lista aquí en Facturación para buscarla.</p>
               <div className="fila-botones">
                 <button className="btn" onClick={() => setFiscal(null)}>Cancelar</button>
                 <button className="btn verde" disabled={ocupado} onClick={enviarFiscal}>Avisar a planta</button>
@@ -317,7 +319,7 @@ function Historial({ cerrar }) {
     try {
       const filas = await api.historial(new Date(`${desde}T00:00:00`).toISOString(), new Date(`${hasta}T23:59:59`).toISOString())
       const f = (iso) => (iso ? new Date(iso).toLocaleString('es-VE') : '')
-      const enc = ['Cliente', 'Estado', 'Documento', 'Subida', 'Revisada', 'Disponible', 'Documento enviado', 'Impresa', 'Despachada', 'Minutos hasta despacho', 'Novedad de planta', 'Respuesta de Comercial']
+      const enc = ['Cliente', 'Estado', 'Documento', 'Subida', 'Revisada', 'Disponible', 'Documento enviado', 'Impresa', 'Despachada', 'Minutos hasta despacho', 'Novedad de planta', 'Respuesta de Facturación']
       const datos = filas.map((p) => [p.cliente, p.estado, p.tipo_doc === 'nota' ? 'Nota de entrega' : p.tipo_doc === 'fiscal' ? 'Factura fiscal' : '',
         f(p.creado_en), f(p.revisado_en), f(p.disponible_en), f(p.documento_en), f(p.impreso_en), f(p.despachado_en),
         p.despachado_en ? Math.round((new Date(p.despachado_en) - new Date(p.creado_en)) / 60000) : '', p.nota_planta, p.respuesta_comercial])

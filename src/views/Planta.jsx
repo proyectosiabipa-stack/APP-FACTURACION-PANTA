@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api/index.js'
 import { usePedidos } from '../usePedidos.js'
 import PdfView from '../components/PdfView.jsx'
+import Pasos from '../components/Pasos.jsx'
 import { obtenerPdf, precargar } from '../archivos.js'
 import { aviso, esHoy, hace, mantenerPantalla, sonar } from '../util.js'
 
@@ -10,15 +11,18 @@ const ATAJOS = ['No hay ', 'Solo hay ', 'Cambiar por ', 'Falta empaque de ']
 export default function Planta({ perfil }) {
   const [abierto, setAbierto] = useState(null)
   const [fallo, setFallo] = useState('')
+  const [llegada, setLlegada] = useState(null)
+  const anunciar = (titulo, p) => { setLlegada({ titulo, cliente: p.cliente, id: p.id }); aviso(titulo, p.cliente) }
   const { pedidos, error, recargar, ajustar } = usePedidos((p, antes) => {
     if (p.estado === 'por_revisar' && (!antes || antes.estado !== 'por_revisar')) {
-      sonar(); aviso('Cotización nueva', p.cliente)
+      sonar(); anunciar(p.respuesta_comercial ? 'Facturación respondió' : 'Llegó una cotización nueva', p)
     }
     if (p.estado === 'documento_listo' && antes?.estado !== 'documento_listo') {
       sonar()
-      aviso(p.tipo_doc === 'nota' ? 'Nota de entrega lista para imprimir' : 'Factura fiscal lista en Comercial', p.cliente)
+      anunciar(p.tipo_doc === 'nota' ? 'Nota de entrega lista para imprimir' : 'Factura fiscal lista en Facturación', p)
     }
   })
+  useEffect(() => { if (!llegada) return; const t = setTimeout(() => setLlegada(null), 10000); return () => clearTimeout(t) }, [llegada])
 
   useEffect(() => {
     let soltar
@@ -61,13 +65,18 @@ export default function Planta({ perfil }) {
     <div className="planta">
       {error && <div className="alerta-conexion">Sin conexión: {error}. Se reintenta solo.</div>}
       {fallo && <div className="alerta-conexion" onClick={() => setFallo('')}>{fallo}</div>}
+      {llegada && (
+        <button className="llegada" onClick={() => { setAbierto(llegada.id); setLlegada(null) }}>
+          <b>{llegada.titulo}</b><span>{llegada.cliente} · toque para abrir</span>
+        </button>
+      )}
       {!pedidos && <p className="nota">Cargando…</p>}
       {pedidos && (
         <>
           <Grupo titulo="Por revisar en el depósito" vacio="No hay cotizaciones nuevas." lista={grupos.revisar} abrir={setAbierto} perfil={perfil} />
           <Grupo titulo="Para imprimir y despachar" vacio="Nada por imprimir." lista={grupos.imprimir} abrir={setAbierto} perfil={perfil} />
-          <Grupo titulo="En espera de Comercial" vacio="Nada en espera." lista={grupos.espera} abrir={setAbierto} perfil={perfil} />
-          <Grupo titulo="Confirmadas, Comercial está facturando" vacio="Nada por facturar." lista={grupos.facturar} abrir={setAbierto} perfil={perfil} suave />
+          <Grupo titulo="En espera de Facturación" vacio="Nada en espera." lista={grupos.espera} abrir={setAbierto} perfil={perfil} />
+          <Grupo titulo="Confirmadas, Facturación está facturando" vacio="Nada por facturar." lista={grupos.facturar} abrir={setAbierto} perfil={perfil} suave />
           <p className="nota resumen-dia">Despachados hoy: <b>{grupos.hechos.length}</b></p>
         </>
       )}
@@ -90,14 +99,14 @@ function Grupo({ titulo, vacio, lista, abrir, perfil, suave }) {
 function Tarjeta({ p, abrir, perfil }) {
   let etiqueta, clase
   if (p.estado === 'por_revisar') {
-    etiqueta = p.respuesta_comercial ? 'Comercial respondió' : 'Nueva'
+    etiqueta = p.respuesta_comercial ? 'Facturación respondió' : 'Nueva'
     clase = p.respuesta_comercial ? 'ambar' : 'azul'
   } else if (p.estado === 'en_revision') {
     etiqueta = p.tomado_por === perfil.id ? 'La estás revisando' : 'Otra persona la revisa'; clase = 'azul'
-  } else if (p.estado === 'en_espera') { etiqueta = 'Esperando a Comercial'; clase = 'ambar' }
+  } else if (p.estado === 'en_espera') { etiqueta = 'Esperando a Facturación'; clase = 'ambar' }
   else if (p.estado === 'disponible') { etiqueta = 'Facturando'; clase = 'gris' }
   else if (p.estado === 'documento_listo') {
-    etiqueta = p.tipo_doc === 'nota' ? 'Nota lista para imprimir' : 'Factura fiscal: buscar en Comercial'; clase = 'verde'
+    etiqueta = p.tipo_doc === 'nota' ? 'Nota lista para imprimir' : 'Factura fiscal: buscar en Facturación'; clase = 'verde'
   } else if (p.estado === 'impreso') { etiqueta = 'Impresa, falta despachar'; clase = 'verde' }
 
   return (
@@ -147,16 +156,17 @@ function Detalle({ pedido: p, perfil, cerrar, rapido }) {
           <span className="nota">Cotización</span>
         </div>
       </div>
+      <Pasos p={p} />
 
       {p.respuesta_comercial && revisando && (
-        <div className="mensaje ambar"><b>Comercial respondió:</b> {p.respuesta_comercial}{p.nota_planta && <><br /><span className="nota">Tu nota: {p.nota_planta}</span></>}</div>
+        <div className="mensaje ambar"><b>Facturación respondió:</b> {p.respuesta_comercial}{p.nota_planta && <><br /><span className="nota">Tu nota: {p.nota_planta}</span></>}</div>
       )}
       {p.estado === 'en_espera' && (
-        <div className="mensaje ambar"><b>Enviaste a Comercial:</b> {p.nota_planta}<br /><span className="nota">Cuando respondan te avisa con un sonido.</span></div>
+        <div className="mensaje ambar"><b>Enviaste a Facturación:</b> {p.nota_planta}<br /><span className="nota">Cuando respondan te avisa con un sonido.</span></div>
       )}
       {otro && <div className="mensaje">Otra persona la está revisando. Puedes verla, pero mejor no confirmar dos veces.</div>}
       {p.estado === 'documento_listo' && p.tipo_doc === 'fiscal' && (
-        <div className="mensaje verde"><b>Factura fiscal impresa en Comercial.</b> Pásala buscando y luego marca «Ya la tengo».</div>
+        <div className="mensaje verde"><b>Factura fiscal impresa en Facturación.</b> Pásala buscando y luego marca «Ya la tengo».</div>
       )}
 
       {p.doc_path && (
@@ -199,7 +209,7 @@ function Detalle({ pedido: p, perfil, cerrar, rapido }) {
         {['documento_listo', 'impreso'].includes(p.estado) && (
           <button className="btn grande verde" disabled={ocupado} onClick={() => rapido(p.id, { estado: 'despachado', despachado_en: new Date().toISOString() }, () => api.rpc('marcar_despachado', { p_id: p.id }))}>Pedido despachado</button>
         )}
-        {p.estado === 'disponible' && <p className="nota">Ya la confirmaste. Comercial la está facturando; te avisa cuando esté lista.</p>}
+        {p.estado === 'disponible' && <p className="nota">Ya la confirmaste. Facturación la está facturando; te avisa cuando esté lista.</p>}
       </div>
     </div>
   )

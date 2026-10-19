@@ -181,3 +181,41 @@ h2 { font-size: 20px; } h3 { font-size: 17px; margin-top: 8px; }
 .acceso h3 { margin: 0 0 4px; }
 .acceso .acciones { margin: 12px 0 0; align-items: center; }
 .acceso .acciones input { width: 140px; border: 1px solid var(--linea); border-radius: 10px; padding: 10px 12px; background: var(--fondo); font-size: 17px; }
+
+/* Acabado: colores por estado, pasos del pedido, aviso de llegada */
+:root { --lima-claro: #f1f8e3; --lima-oscuro: #557a12; }
+.borde-lima { border-left-color: var(--lima); }
+.mini-tarjeta { border-left-width: 5px; transition: transform .12s ease, box-shadow .12s ease; }
+.mini-tarjeta.borde-azul { border-left-color: var(--azul); } .mini-tarjeta.borde-ambar { border-left-color: var(--ambar); }
+.mini-tarjeta.borde-verde { border-left-color: var(--verde); } .mini-tarjeta.borde-gris { border-left-color: var(--linea); }
+.mini-tarjeta:hover, .tarjeta:hover { box-shadow: 0 6px 18px -10px rgba(21,38,27,.35); }
+.mini-tarjeta:active, .tarjeta:active, .btn:active { transform: scale(.98); }
+.tarjeta { transition: transform .12s ease, box-shadow .12s ease; }
+.columna h2 > span:first-child { display: inline-flex; align-items: center; gap: 8px; }
+.punto-color { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: var(--linea); }
+.punto-color.azul { background: var(--azul); } .punto-color.ambar { background: var(--ambar); } .punto-color.lima { background: var(--lima); }
+.punto-color.verde { background: var(--verde); } .punto-color.gris { background: #b7c3b9; }
+
+.pasos { list-style: none; margin: 4px 0 14px; padding: 12px 14px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; background: var(--panel); border: 1px solid var(--linea); border-radius: 14px; }
+.pasos li { display: grid; justify-items: center; text-align: center; gap: 3px; position: relative; color: var(--suave); font-size: 13.5px; }
+.pasos li:not(:last-child)::after { content: ''; position: absolute; top: 14px; left: calc(50% + 17px); right: calc(-50% + 17px); height: 2px; background: var(--linea); }
+.pasos li.hecho:not(:last-child)::after { background: var(--verde); }
+.pasos .punto { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 13px; background: var(--gris-claro); color: var(--suave); border: 2px solid var(--linea); }
+.pasos li.hecho .punto { background: var(--verde); border-color: var(--verde); color: #fff; }
+.pasos li.actual .punto { background: #fff; border-color: var(--azul); color: var(--azul); box-shadow: 0 0 0 4px var(--azul-claro); }
+.pasos li.hecho, .pasos li.actual { color: var(--tinta); }
+.pasos .paso-texto { font-weight: 600; font-family: var(--titulos); font-size: 13px; }
+.pasos .paso-hora { font-size: 12.5px; color: var(--suave); min-height: 1em; }
+@media (max-width: 520px) { .pasos .paso-texto { font-size: 11.5px; } }
+
+.llegada { position: fixed; left: 50%; top: calc(76px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); z-index: 20; width: min(560px, calc(100% - 32px));
+  border: 0; border-radius: 16px; background: var(--azul); color: #fff; padding: 16px 20px; display: grid; gap: 2px; text-align: left;
+  box-shadow: 0 18px 40px -16px rgba(31,95,168,.6); animation: llega .35s ease-out, late 1.6s ease-in-out .35s 3; }
+.llegada b { font-family: var(--titulos); font-size: 19px; }
+.llegada span { opacity: .9; }
+@keyframes llega { from { opacity: 0; transform: translate(-50%, -12px); } }
+@keyframes late { 50% { box-shadow: 0 0 0 10px rgba(31,95,168,.18), 0 18px 40px -16px rgba(31,95,168,.6); } }
+@media (prefers-reduced-motion: reduce) { .llegada { animation: none; } .mini-tarjeta, .tarjeta, .btn { transition: none; } }
+/* El panel de Facturación no encoge el PDF: cada parte ocupa su alto completo y el panel se desplaza */
+.panel { display: flex; flex-direction: column; }
+.panel > * { flex-shrink: 0; }
