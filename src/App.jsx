@@ -23,10 +23,7 @@ export default function App() {
   if (perfil === undefined) return <div className="cargando">Cargando…</div>
   if (!perfil) return <Ingreso alEntrar={setPerfil} />
 
-  const salir = async () => {
-    if (perfil.equipo && !confirm('Este equipo quedará desconectado y solo el administrador podrá conectarlo otra vez. ¿Salir?')) return
-    await api.salir(); setPerfil(null)
-  }
+  const salir = async () => { await api.salir(); setPerfil(null) }
 
   return (
     <div className="app">
@@ -34,7 +31,7 @@ export default function App() {
         <div className="marca"><img src="icono-192.png" alt="" /> <span>BIPA Despacho</span></div>
         {perfil.rol === 'admin' && (
           <nav className="pestanas" aria-label="Vistas">
-            {[['comercial', 'Comercial'], ['planta', 'Planta'], ['personas', 'Personas']].map(([v, t]) => (
+            {[['comercial', 'Facturación'], ['planta', 'Planta'], ['personas', 'Accesos']].map(([v, t]) => (
               <button key={v} className={vista === v ? 'activa' : ''} onClick={() => setVista(v)}>{t}</button>
             ))}
           </nav>

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/index.js'
 
-const ROLES = { planta: 'Planta', comercial: 'Comercial', admin: 'Administración' }
 
 export default function Ingreso({ alEntrar }) {
   const [personas, setPersonas] = useState(null)
@@ -9,7 +8,7 @@ export default function Ingreso({ alEntrar }) {
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [ocupado, setOcupado] = useState(false)
-  const [primero, setPrimero] = useState({ nombre: '', pin: '', repetir: '' })
+  const [primero, setPrimero] = useState({ pin: '', repetir: '' })
 
   useEffect(() => {
     api.listaIngreso().then(setPersonas).catch((e) => setError(e.message))
@@ -35,7 +34,7 @@ export default function Ingreso({ alEntrar }) {
     setError('')
     try {
       const codigo = new URLSearchParams(location.search).get('alta') || ''
-      await api.usuarios({ accion: 'crear', nombre: primero.nombre.trim(), rol: 'admin', pin: primero.pin, codigo })
+      await api.usuarios({ accion: 'crear', nombre: 'Administración', rol: 'admin', pin: primero.pin, codigo })
       history.replaceState(null, '', location.pathname)
       const lista = await api.listaIngreso()
       const yo = lista.find((p) => p.rol === 'admin')
@@ -45,6 +44,11 @@ export default function Ingreso({ alEntrar }) {
     } finally {
       setOcupado(false)
     }
+  }
+  const entrarPlanta = async () => {
+    setOcupado(true)
+    setError('')
+    try { alEntrar(await api.entrarPlanta()) } catch (e) { setError(e.message) } finally { setOcupado(false) }
   }
   const soloNumeros = (v) => v.replace(/\D/g, '').slice(0, 6)
 
@@ -63,33 +67,35 @@ export default function Ingreso({ alEntrar }) {
         {api.modo === 'demo' && <p className="nota">Modo de prueba · el PIN de todos es 123456</p>}
         {!elegida ? (
           <>
-            {personas?.length !== 0 && api.modo !== 'demo' && <p className="nota">Este equipo no está conectado. Planta y facturación entran solas una vez que el administrador conecta el equipo.</p>}
-            {personas?.length !== 0 && <p>{api.modo === 'demo' ? '¿Quién eres?' : 'Administración'}</p>}
-            {!personas && !error && <p className="nota">Cargando…</p>}
             {personas && personas.length === 0 && (
               <form className="primer-admin" onSubmit={(e) => { e.preventDefault(); crearAdministrador() }}>
                 <p><b>Crear administrador</b></p>
-                <p className="nota">Todavía no hay nadie registrado. Escriba su nombre y elija su PIN de 6 números. Después agrega a los demás desde «Personas».</p>
+                <p className="nota">Elija el PIN de 6 números de la administración. Después pone el PIN de Facturación desde «Accesos».</p>
                 <div className="campos">
-                  <label className="ancho">Nombre<input value={primero.nombre} autoComplete="off" onChange={(e) => setPrimero({ ...primero, nombre: e.target.value })} /></label>
                   <label>PIN<input type="password" inputMode="numeric" autoComplete="new-password" value={primero.pin} onChange={(e) => setPrimero({ ...primero, pin: soloNumeros(e.target.value) })} /></label>
                   <label>Repetir PIN<input type="password" inputMode="numeric" autoComplete="new-password" value={primero.repetir} onChange={(e) => setPrimero({ ...primero, repetir: soloNumeros(e.target.value) })} /></label>
                 </div>
-                <button className="btn verde" disabled={ocupado || !primero.nombre.trim() || primero.pin.length !== 6 || primero.repetir.length !== 6}>Crear administrador</button>
+                <button className="btn verde" disabled={ocupado || primero.pin.length !== 6 || primero.repetir.length !== 6}>Crear administrador</button>
               </form>
             )}
             <div className="ingreso-personas">
+              {personas?.length > 0 && (
+                <button className="persona" onClick={entrarPlanta} disabled={ocupado}>
+                  <span className="inicial">P</span>
+                  <span><b>Planta</b><small>Entra con un toque</small></span>
+                </button>
+              )}
               {personas?.map((p) => (
                 <button key={p.correo} className="persona" onClick={() => { setElegida(p); setError('') }}>
                   <span className="inicial">{p.nombre.slice(0, 1)}</span>
-                  <span><b>{p.nombre}</b><small>{ROLES[p.rol]}</small></span>
+                  <span><b>{p.nombre}</b><small>Con PIN</small></span>
                 </button>
               ))}
             </div>
           </>
         ) : (
           <>
-            <p>Hola, <b>{elegida.nombre.split(' ')[0]}</b>. Escribe tu PIN.</p>
+            <p><b>{elegida.nombre}</b>: escriba el PIN.</p>
             <div className="pin-puntos" aria-label={`${pin.length} de 6 números`}>
               {[0, 1, 2, 3, 4, 5].map((i) => <span key={i} className={i < pin.length ? 'lleno' : ''} />)}
             </div>

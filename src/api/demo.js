@@ -1,12 +1,12 @@
 // Modo de prueba: todo vive en este navegador (sin internet ni base de datos).
 // Sirve para mostrar y probar la app antes de conectarla a Supabase.
-const CLAVE = 'bipa-despacho-demo-2'
+const CLAVE = 'bipa-despacho-demo-3'
 const canal = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(CLAVE) : null
 
 const PERSONAS = [
   { id: 'p1', nombre: 'Planta', rol: 'planta', correo: 'planta', activo: true, equipo: true },
-  { id: 'p2', nombre: 'Facturación', rol: 'comercial', correo: 'facturacion', activo: true, equipo: true },
-  { id: 'p3', nombre: 'Administrador', rol: 'admin', correo: 'admin', activo: true },
+  { id: 'p2', nombre: 'Facturación', rol: 'comercial', correo: 'facturacion', activo: true },
+  { id: 'p3', nombre: 'Administración', rol: 'admin', correo: 'admin', activo: true },
 ]
 
 function leer() {
@@ -140,7 +140,7 @@ export function crearApiDemo() {
 
   return {
     modo: 'demo',
-    async listaIngreso() { return leer().perfiles.filter((p) => p.activo).map(({ nombre, rol, correo }) => ({ nombre, rol, correo })) },
+    async listaIngreso() { return leer().perfiles.filter((p) => p.activo && !p.equipo).map(({ nombre, rol, correo }) => ({ nombre, rol, correo })) },
     async entrar(correo, pin) {
       await new Promise((r) => setTimeout(r, 250))
       if (pin !== '123456') throw new Error('PIN incorrecto')
@@ -175,7 +175,9 @@ export function crearApiDemo() {
       await new Promise((r) => setTimeout(r, 150))
       return rpcs[nombre](args || {})
     },
-    async conectarEquipo() { throw new Error('En el modo de prueba no se conectan equipos') },
+    plantaAutorizada: () => true,
+    async autorizarPlanta() {},
+    async entrarPlanta() { return this.entrar('planta', '123456') },
     async usuarios() { throw new Error('En el modo de prueba no se crean personas') },
     reiniciar() { localStorage.removeItem(CLAVE); sembrar() },
     get perfil() { return perfil },

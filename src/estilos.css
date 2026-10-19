@@ -177,3 +177,7 @@ h2 { font-size: 20px; } h3 { font-size: 17px; margin-top: 8px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 .acciones { display: flex; gap: 12px; flex-wrap: wrap; margin: 8px 0 28px; }
+.acceso { background: var(--panel); border: 1px solid var(--linea); border-radius: 14px; padding: 18px 20px; margin-bottom: 16px; }
+.acceso h3 { margin: 0 0 4px; }
+.acceso .acciones { margin: 12px 0 0; align-items: center; }
+.acceso .acciones input { width: 140px; border: 1px solid var(--linea); border-radius: 10px; padding: 10px 12px; background: var(--fondo); font-size: 17px; }

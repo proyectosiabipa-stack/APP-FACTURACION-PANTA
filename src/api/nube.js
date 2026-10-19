@@ -1,6 +1,8 @@
 // Conexión real: Supabase (base de datos, archivos y tiempo real)
 import { createClient } from '@supabase/supabase-js'
 
+const MARCA_PLANTA = 'bipa-despacho-equipo-planta'
+
 export function crearApiNube(url, llave) {
   const sb = createClient(url, llave, { auth: { persistSession: true, storageKey: 'bipa-despacho-sesion' } })
   let perfil = null
@@ -32,16 +34,20 @@ export function crearApiNube(url, llave) {
       if (!p) { await sb.auth.signOut(); throw new Error('Tu usuario está desactivado') }
       return p
     },
-    // El administrador conecta este equipo a la cuenta de un área; desde ahí entra solo, sin PIN
-    async conectarEquipo(rol) {
-      const cuenta = await this.usuarios({ accion: 'equipo', rol })
-      await sb.auth.signOut({ scope: 'local' })
+    // Planta entra con un toque, sin PIN
+    plantaAutorizada: () => !!localStorage.getItem(MARCA_PLANTA),
+    async autorizarPlanta() {
+      const { token } = await this.usuarios({ accion: 'autorizar_planta' })
+      localStorage.setItem(MARCA_PLANTA, token)
+    },
+    async entrarPlanta() {
+      const cuenta = await this.usuarios({ accion: 'planta', token: localStorage.getItem(MARCA_PLANTA) || '' })
       const { error } = await sb.auth.signInWithPassword({ email: cuenta.correo, password: cuenta.clave })
       fallo(error)
       return cargarPerfil()
     },
     sesionActual: cargarPerfil,
-    // Solo este equipo: los demás equipos de la misma área siguen conectados
+    // Solo este equipo: los demás que usan la misma cuenta siguen conectados
     async salir() { await sb.auth.signOut({ scope: 'local' }); perfil = null },
     async pedidos() {
       const desde = new Date(Date.now() - 30 * 864e5).toISOString()

@@ -1,4 +1,4 @@
-// Alta de personas, cambio de PIN y activar/desactivar. Solo el administrador.
+// Cuentas de la app: Administración y Facturación (con PIN) y Planta (sin PIN). Cambios solo por el administrador.
 // Si todavía no hay nadie registrado, permite crear el primer administrador una sola vez,
 // y solo con el código de alta (tabla privada _ajustes) que va en el enlace de instalación.
 import { createClient } from 'npm:@supabase/supabase-js@2.49.4'
@@ -14,6 +14,31 @@ const responder = (cuerpo: unknown, status = 200) =>
 // La contraseña real es el PIN con un prefijo fijo (Supabase pide mínimo 6 caracteres)
 export const claveDesdePin = (pin: string) => `BIPA-${pin}`
 
+// Cuenta de un área sin PIN (Planta): clave larga al azar guardada en _ajustes, nadie la escribe
+async function cuentaArea(admin: any, rol: string, nombre: string) {
+  const clave = `equipo_${rol}`
+  const { data: guardado } = await admin.from('_ajustes').select('valor').eq('clave', clave).maybeSingle()
+  if (guardado) {
+    const cuenta = JSON.parse(guardado.valor)
+    const { data: p } = cuenta.id
+      ? await admin.from('perfiles').select('activo').eq('id', cuenta.id).maybeSingle()
+      : { data: null }
+    if (p && !p.activo) return responder({ error: `${nombre} está desactivada. La administración puede activarla.` }, 403)
+    if (p) return responder({ correo: cuenta.correo, clave: cuenta.clave })
+  }
+  const correo = `equipo-${rol}-${crypto.randomUUID().slice(0, 8)}@bipa-despacho.app`
+  const nueva = crypto.randomUUID() + crypto.randomUUID()
+  const { data, error } = await admin.auth.admin.createUser({ email: correo, password: nueva, email_confirm: true })
+  if (error) return responder({ error: error.message }, 400)
+  const { error: e2 } = await admin.from('perfiles').insert({ id: data.user.id, nombre, rol, equipo: true })
+  if (e2) {
+    await admin.auth.admin.deleteUser(data.user.id)
+    return responder({ error: e2.message }, 400)
+  }
+  await admin.from('_ajustes').upsert({ clave, valor: JSON.stringify({ id: data.user.id, correo, clave: nueva }) })
+  return responder({ correo, clave: nueva })
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   try {
@@ -24,6 +49,17 @@ Deno.serve(async (req) => {
 
     const { count } = await admin.from('perfiles').select('id', { count: 'exact', head: true })
     const primerUso = (count ?? 0) === 0
+
+    // Planta entra con un toque, sin PIN, pero solo desde un equipo que la administración autorizó
+    if (body.accion === 'planta') {
+      if (primerUso) return responder({ error: 'Primero hay que crear la administración' }, 400)
+      const { data: t } = await admin.from('_ajustes').select('valor').eq('clave', 'tokens_planta').maybeSingle()
+      const tokens: string[] = t ? JSON.parse(t.valor) : []
+      if (typeof body.token !== 'string' || !tokens.includes(body.token)) {
+        return responder({ error: 'Este equipo no está autorizado para Planta. La administración lo autoriza una sola vez.' }, 403)
+      }
+      return cuentaArea(admin, 'planta', 'Planta')
+    }
 
     if (!primerUso) {
       const token = (req.headers.get('Authorization') || '').replace('Bearer ', '')
@@ -43,7 +79,7 @@ Deno.serve(async (req) => {
     const pinValido = (p: unknown) => typeof p === 'string' && /^\d{6}$/.test(p)
 
     if (body.accion === 'crear') {
-      const nombre = String(body.nombre || '').trim()
+      const nombre = primerUso ? 'Administración' : String(body.nombre || '').trim()
       const rol = primerUso ? 'admin' : body.rol
       if (!nombre) return responder({ error: 'Falta el nombre' }, 400)
       if (!['comercial', 'planta', 'admin'].includes(rol)) return responder({ error: 'Rol no válido' }, 400)
@@ -70,31 +106,48 @@ Deno.serve(async (req) => {
 
     if (primerUso) return responder({ error: 'Primero crea el administrador' }, 400)
 
-    // Conectar un equipo (tablet de planta, computadora de facturación) a la cuenta de su área.
-    // La clave de esa cuenta es larga y al azar, nadie la escribe: el equipo queda conectado para siempre.
-    if (body.accion === 'equipo') {
-      const areas: Record<string, string> = { planta: 'Planta', comercial: 'Facturación' }
-      const rol = String(body.rol || '')
-      if (!areas[rol]) return responder({ error: 'Área no válida' }, 400)
-      const clave = `equipo_${rol}`
-      const { data: guardado } = await admin.from('_ajustes').select('valor').eq('clave', clave).maybeSingle()
-      if (guardado) {
-        const cuenta = JSON.parse(guardado.valor)
-        const { data: p } = await admin.from('perfiles').select('activo').eq('id', cuenta.id).maybeSingle()
-        if (p && !p.activo) return responder({ error: `Los equipos de ${areas[rol]} están desactivados. Actívelos primero.` }, 400)
-        if (p) return responder({ correo: cuenta.correo, clave: cuenta.clave })
-      }
-      const correo = `equipo-${rol}-${crypto.randomUUID().slice(0, 8)}@bipa-despacho.app`
-      const nueva = crypto.randomUUID() + crypto.randomUUID()
-      const { data, error } = await admin.auth.admin.createUser({ email: correo, password: nueva, email_confirm: true })
+    // Autorizar este equipo para Planta: se le da una marca al azar que el equipo guarda
+    if (body.accion === 'autorizar_planta') {
+      const { data: t } = await admin.from('_ajustes').select('valor').eq('clave', 'tokens_planta').maybeSingle()
+      const tokens: string[] = t ? JSON.parse(t.valor) : []
+      const token = crypto.randomUUID() + crypto.randomUUID()
+      tokens.push(token)
+      const { error } = await admin.from('_ajustes').upsert({ clave: 'tokens_planta', valor: JSON.stringify(tokens) })
       if (error) return responder({ error: error.message }, 400)
-      const { error: e2 } = await admin.from('perfiles').insert({ id: data.user.id, nombre: areas[rol], rol, equipo: true })
+      return responder({ token })
+    }
+
+    // Quitar todos los equipos de Planta (si se pierde una tablet); luego se autorizan de nuevo los que quedan
+    if (body.accion === 'quitar_planta') {
+      const { error } = await admin.from('_ajustes').upsert({ clave: 'tokens_planta', valor: '[]' })
+      if (error) return responder({ error: error.message }, 400)
+      // La cuenta vieja de Planta se apaga (las tablets que la tenían abierta quedan fuera) y se hará una nueva
+      const { data: g } = await admin.from('_ajustes').select('valor').eq('clave', 'equipo_planta').maybeSingle()
+      if (g) {
+        await admin.from('perfiles').update({ activo: false }).eq('id', JSON.parse(g.valor).id)
+        await admin.from('_ajustes').upsert({ clave: 'equipo_planta', valor: '{}' })
+      }
+      return responder({ ok: true })
+    }
+
+    // Facturación: una sola cuenta con PIN; si ya existe, solo cambia el PIN
+    if (body.accion === 'facturacion') {
+      if (!pinValido(body.pin)) return responder({ error: 'El PIN debe tener 6 números' }, 400)
+      const { data: ya } = await admin.from('perfiles').select('id').eq('rol', 'comercial').eq('nombre', 'Facturación').maybeSingle()
+      if (ya) {
+        const { error } = await admin.auth.admin.updateUserById(ya.id, { password: claveDesdePin(body.pin) })
+        if (error) return responder({ error: error.message }, 400)
+        return responder({ ok: true })
+      }
+      const correo = `facturacion-${crypto.randomUUID().slice(0, 8)}@bipa-despacho.app`
+      const { data, error } = await admin.auth.admin.createUser({ email: correo, password: claveDesdePin(body.pin), email_confirm: true })
+      if (error) return responder({ error: error.message }, 400)
+      const { error: e2 } = await admin.from('perfiles').insert({ id: data.user.id, nombre: 'Facturación', rol: 'comercial' })
       if (e2) {
         await admin.auth.admin.deleteUser(data.user.id)
         return responder({ error: e2.message }, 400)
       }
-      await admin.from('_ajustes').upsert({ clave, valor: JSON.stringify({ id: data.user.id, correo, clave: nueva }) })
-      return responder({ correo, clave: nueva })
+      return responder({ ok: true })
     }
 
     if (body.accion === 'pin') {
