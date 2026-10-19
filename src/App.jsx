@@ -30,7 +30,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="cabecera">
-        <div className="marca"><img src="icono-192.png" alt="" /> <span>BIPA Despacho</span></div>
+        <div className="marca"><span className="marca-hoja"><img src="hoja.png" alt="" /></span> <span>BIPA <small>Despacho</small></span></div>
         {perfil.rol === 'admin' && (
           <nav className="pestanas" aria-label="Vistas">
             {[['comercial', 'Facturación'], ['planta', 'Planta'], ['personas', 'Accesos']].map(([v, t]) => (

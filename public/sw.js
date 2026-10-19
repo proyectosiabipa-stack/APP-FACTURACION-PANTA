@@ -1,7 +1,7 @@
 // La app queda guardada en el equipo: abre al instante aunque el wifi esté lento.
 // La página principal se pide primero a la red (para recibir siempre la versión nueva) y, si tarda, se usa la guardada.
-const APP = 'bipa-app-v2'
-const BASE = ['./', './manifest.webmanifest', './icono-192.png', './icono-512.png']
+const APP = 'bipa-app-v3'
+const BASE = ['./', './manifest.webmanifest', './icono-192.png', './icono-512.png', './logo-bipa.png', './hoja.png']
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(APP).then((c) => c.addAll(BASE)).then(() => self.skipWaiting()))

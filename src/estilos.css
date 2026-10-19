@@ -219,3 +219,21 @@ h2 { font-size: 20px; } h3 { font-size: 17px; margin-top: 8px; }
 /* El panel de Facturación no encoge el PDF: cada parte ocupa su alto completo y el panel se desplaza */
 .panel { display: flex; flex-direction: column; }
 .panel > * { flex-shrink: 0; }
+
+/* Bombillos de ayuda */
+.ayuda { display: inline-flex; vertical-align: middle; margin-left: 6px; }
+.ayuda-boton { width: 26px; height: 26px; border-radius: 50%; border: 1px solid #ecd98a; background: #fff8d6; color: #b58a00; display: grid; place-items: center; padding: 0; flex-shrink: 0; }
+.ayuda-boton:hover, .ayuda-boton.abierta { background: #ffe98a; color: #8a6400; }
+.ayuda-globo { position: fixed; z-index: 40; background: var(--tinta); color: #fff; border-radius: 12px; padding: 12px 14px; font-family: var(--texto); font-size: 15px; font-weight: 400; line-height: 1.45; text-align: left;
+  box-shadow: 0 16px 36px -14px rgba(0,0,0,.45); animation: globo .15s ease-out; white-space: normal; letter-spacing: normal; }
+.ayuda-globo b { color: #ffe98a; }
+@keyframes globo { from { opacity: 0; transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .ayuda-globo { animation: none; } }
+.pasos-caja { position: relative; }
+.pasos-ayuda { position: absolute; top: 8px; right: 10px; z-index: 1; }
+.marca-hoja { width: 34px; height: 34px; border-radius: 50%; background: #fff; display: grid; place-items: center; flex-shrink: 0; }
+.marca-hoja img { width: 24px; height: auto; border-radius: 0; }
+.marca small { font-family: var(--texto); font-weight: 600; font-size: 16px; opacity: .85; margin-left: 2px; }
+.ingreso-logo { width: min(210px, 70%); height: auto; border-radius: 0; }
+.barra-acciones .ayuda { align-self: center; }
+.barra-comercial > .ayuda { align-self: center; margin: 0; }

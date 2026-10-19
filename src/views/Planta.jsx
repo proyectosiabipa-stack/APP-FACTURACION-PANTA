@@ -3,6 +3,7 @@ import { api } from '../api/index.js'
 import { usePedidos } from '../usePedidos.js'
 import PdfView from '../components/PdfView.jsx'
 import Pasos from '../components/Pasos.jsx'
+import Ayuda from '../components/Ayuda.jsx'
 import { obtenerPdf, precargar } from '../archivos.js'
 import { aviso, esHoy, hace, mantenerPantalla, sonar } from '../util.js'
 
@@ -73,10 +74,14 @@ export default function Planta({ perfil }) {
       {!pedidos && <p className="nota">Cargando…</p>}
       {pedidos && (
         <>
-          <Grupo titulo="Por revisar en el depósito" vacio="No hay cotizaciones nuevas." lista={grupos.revisar} abrir={setAbierto} perfil={perfil} />
-          <Grupo titulo="Para imprimir y despachar" vacio="Nada por imprimir." lista={grupos.imprimir} abrir={setAbierto} perfil={perfil} />
-          <Grupo titulo="En espera de Facturación" vacio="Nada en espera." lista={grupos.espera} abrir={setAbierto} perfil={perfil} />
-          <Grupo titulo="Confirmadas, Facturación está facturando" vacio="Nada por facturar." lista={grupos.facturar} abrir={setAbierto} perfil={perfil} suave />
+          <Grupo titulo="Por revisar en el depósito" vacio="No hay cotizaciones nuevas." lista={grupos.revisar} abrir={setAbierto} perfil={perfil}
+            ayuda="Cotizaciones nuevas. Ábrala, revise en el depósito si está todo y toque «Todo disponible» o «Hay novedad»." />
+          <Grupo titulo="Para imprimir y despachar" vacio="Nada por imprimir." lista={grupos.imprimir} abrir={setAbierto} perfil={perfil}
+            ayuda="Facturación ya mandó el documento. Si es nota de entrega, imprímala. Si es factura fiscal, búsquela en Facturación y toque «Ya la tengo». Al salir el pedido, toque «Pedido despachado»." />
+          <Grupo titulo="En espera de Facturación" vacio="Nada en espera." lista={grupos.espera} abrir={setAbierto} perfil={perfil}
+            ayuda="Usted avisó una novedad. Facturación la está viendo; suena un aviso cuando responda." />
+          <Grupo titulo="Confirmadas, Facturación está facturando" vacio="Nada por facturar." lista={grupos.facturar} abrir={setAbierto} perfil={perfil} suave
+            ayuda="Ya confirmó que está todo. Facturación está haciendo la nota o la factura; suena un aviso cuando esté lista." />
           <p className="nota resumen-dia">Despachados hoy: <b>{grupos.hechos.length}</b></p>
         </>
       )}
@@ -84,10 +89,10 @@ export default function Planta({ perfil }) {
   )
 }
 
-function Grupo({ titulo, vacio, lista, abrir, perfil, suave }) {
+function Grupo({ titulo, vacio, lista, abrir, perfil, suave, ayuda }) {
   return (
     <section className={`grupo ${suave ? 'suave' : ''}`}>
-      <h2>{titulo} <span className="cuenta">{lista.length}</span></h2>
+      <h2>{titulo}{ayuda && <Ayuda titulo={titulo}>{ayuda}</Ayuda>} <span className="cuenta">{lista.length}</span></h2>
       {lista.length === 0 && <p className="nota">{vacio}</p>}
       <div className="tarjetas">
         {lista.map((p) => <Tarjeta key={p.id} p={p} abrir={abrir} perfil={perfil} />)}
@@ -180,8 +185,9 @@ function Detalle({ pedido: p, perfil, cerrar, rapido }) {
       {error && <p className="error">{error}</p>}
 
       <div className="barra-acciones">
-        {revisando && !novedad && (
+        {revisando && novedad === null && (
           <>
+            <Ayuda titulo="Qué botón tocar"><b>Todo disponible:</b> encontró todo lo de la cotización. <b>Hay novedad:</b> falta algo o hay que cambiar algo; escriba qué y se le avisa a Facturación.</Ayuda>
             <button className="btn grande ambar" disabled={ocupado} onClick={() => setNovedad(p.estado === 'en_espera' ? p.nota_planta : '')}>Hay novedad</button>
             <button className="btn grande verde" disabled={ocupado} onClick={() => rapido(p.id, { estado: 'disponible' }, () => api.rpc('confirmar_disponible', { p_id: p.id }))}>Todo disponible</button>
           </>

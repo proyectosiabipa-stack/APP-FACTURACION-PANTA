@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/index.js'
+import Ayuda from '../components/Ayuda.jsx'
 
 
 export default function Ingreso({ alEntrar }) {
@@ -62,8 +63,8 @@ export default function Ingreso({ alEntrar }) {
   return (
     <div className="ingreso">
       <div className="ingreso-caja">
-        <img src="icono-192.png" alt="" className="ingreso-logo" />
-        <h1>BIPA Despacho</h1>
+        <img src="logo-bipa.png" alt="BIPA, buenas ideas puestas en acción" className="ingreso-logo" />
+        <h1>Despacho <Ayuda titulo="Cómo entrar"><b>Planta</b> entra con un toque, solo en las tablets que la administración autorizó. <b>Facturación</b> y <b>Administración</b> piden su PIN de 6 números.</Ayuda></h1>
         {api.modo === 'demo' && <p className="nota">Modo de prueba · el PIN de todos es 123456</p>}
         {!elegida ? (
           <>

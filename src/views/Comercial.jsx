@@ -3,14 +3,20 @@ import { api } from '../api/index.js'
 import { usePedidos } from '../usePedidos.js'
 import PdfView from '../components/PdfView.jsx'
 import Pasos from '../components/Pasos.jsx'
+import Ayuda from '../components/Ayuda.jsx'
 import { aviso, duracion, esHoy, hace, hora, sonar } from '../util.js'
 
 const COLUMNAS = [
-  { id: 'revisando', titulo: 'Planta revisando', estados: ['por_revisar', 'en_revision'], color: 'azul' },
-  { id: 'espera', titulo: 'Planta tiene una novedad', estados: ['en_espera'], color: 'ambar' },
-  { id: 'facturar', titulo: 'Para facturar', estados: ['disponible'], color: 'lima' },
-  { id: 'planta', titulo: 'En planta', estados: ['documento_listo', 'impreso'], color: 'verde' },
-  { id: 'hechos', titulo: 'Despachados hoy', estados: ['despachado'], color: 'gris' },
+  { id: 'revisando', titulo: 'Planta revisando', estados: ['por_revisar', 'en_revision'], color: 'azul',
+    ayuda: 'Cotizaciones que usted envió y que planta está revisando en el depósito. Aquí no hay que hacer nada todavía.' },
+  { id: 'espera', titulo: 'Planta tiene una novedad', estados: ['en_espera'], color: 'ambar',
+    ayuda: 'Planta encontró algo: falta un producto o hay que cambiar algo. Ábrala, lea la nota y responda. Puede adjuntar una cotización corregida.' },
+  { id: 'facturar', titulo: 'Para facturar', estados: ['disponible'], color: 'lima',
+    ayuda: 'Planta confirmó que está todo. Haga la nota de entrega o la factura en Profit y súbala aquí.' },
+  { id: 'planta', titulo: 'En planta', estados: ['documento_listo', 'impreso'], color: 'verde',
+    ayuda: 'Ya mandó la nota o la factura. Planta imprime la nota (o pasa buscando la factura) y despacha.' },
+  { id: 'hechos', titulo: 'Despachados hoy', estados: ['despachado'], color: 'gris',
+    ayuda: 'Pedidos que salieron hoy. Los de días anteriores están en «Historial».' },
 ]
 
 export default function Comercial() {
@@ -85,10 +91,11 @@ export default function Comercial() {
           <span>cotizaciones, notas de entrega o facturas · o toca para elegirlos</span>
         </button>
         <input ref={entrada} type="file" accept="application/pdf" multiple hidden onChange={(e) => { recibirArchivos(e.target.files); e.target.value = '' }} />
+        <Ayuda titulo="Cómo subir PDF">Arrastre aquí uno o varios PDF de Profit: <b>cotizaciones nuevas</b>, <b>notas de entrega</b> o <b>facturas</b>. La app reconoce qué es cada uno y de qué cliente; usted solo revisa antes de enviar.</Ayuda>
         <div className="resumen">
           <div><b>{hechosHoy.length}</b><span>despachados hoy</span></div>
           <div><b>{promedio === null ? '—' : promedio < 60 ? `${promedio} min` : `${Math.floor(promedio / 60)} h ${promedio % 60} min`}</b><span>promedio de cotización a despacho</span></div>
-          <button className="btn-texto" onClick={() => setHistorial(true)}>Historial</button>
+          <span><button className="btn-texto" onClick={() => setHistorial(true)}>Historial</button><Ayuda titulo="Historial">Descarga en Excel los pedidos entre dos fechas, con la hora de cada paso y las novedades.</Ayuda></span>
         </div>
       </div>
 
@@ -96,7 +103,7 @@ export default function Comercial() {
       <div className="tablero">
         {columnas.map((c) => (
           <section key={c.id} className={`columna col-${c.id}`}>
-            <h2><span><i className={`punto-color ${c.color}`} />{c.titulo}</span> <span className="cuenta">{c.lista.length}</span></h2>
+            <h2><span><i className={`punto-color ${c.color}`} />{c.titulo}<Ayuda titulo={c.titulo}>{c.ayuda}</Ayuda></span> <span className="cuenta">{c.lista.length}</span></h2>
             {c.lista.length === 0 && <p className="nota">Vacío</p>}
             {c.lista.map((p) => (
               <button key={p.id} className={`mini-tarjeta borde-${c.color} ${p.estado === 'en_espera' ? 'alerta' : ''}`} onClick={() => setAbierto(p.id)}>
@@ -153,7 +160,7 @@ function Subida({ items: inicial, pedidos, cerrar }) {
           <div key={i} className={`subida ${x.hecho ? 'hecho' : ''}`}>
             <div className="subida-archivo">{x.archivo.name}{x.hecho && ' · enviado ✓'}</div>
             <div className="campos">
-              <label>Qué es
+              <label>Qué es <Ayuda titulo="Qué es"><b>Cotización nueva:</b> va a planta para revisar. <b>Nota de entrega:</b> planta la imprime. <b>Factura fiscal:</b> ya la imprimió aquí; planta pasa buscándola.</Ayuda>
                 <select value={x.tipo} onChange={(e) => cambiar(i, 'tipo', e.target.value)} disabled={x.hecho}>
                   <option value="cotizacion">Cotización nueva</option>
                   <option value="nota">Nota de entrega (se imprime en planta)</option>
@@ -161,11 +168,11 @@ function Subida({ items: inicial, pedidos, cerrar }) {
                 </select>
               </label>
               {x.tipo === 'cotizacion' ? (
-                <label className="ancho">Cliente
+                <label className="ancho">Cliente <Ayuda titulo="Cliente">Es el nombre que verá planta en la tarjeta. Corríjalo si la app lo leyó mal.</Ayuda>
                   <input value={x.cliente} onChange={(e) => cambiar(i, 'cliente', e.target.value)} disabled={x.hecho} />
                 </label>
               ) : (
-                <label className="ancho">De cuál cotización
+                <label className="ancho">De cuál cotización <Ayuda titulo="De cuál cotización">El pedido al que pertenece esta nota o factura. Si el cliente coincide, la app lo elige sola.</Ayuda>
                   <select value={x.destino} onChange={(e) => cambiar(i, 'destino', e.target.value)} disabled={x.hecho}>
                     <option value="">Elige la cotización…</option>
                     {destinos.map((p) => <option key={p.id} value={p.id}>{p.cliente || 'Sin cliente'} · subida {hora(p.creado_en)}</option>)}
@@ -295,7 +302,7 @@ function Detalle({ p, cerrar }) {
         {p.archivos_borrados ? <p className="nota">Los PDF de este pedido se borraron a los 15 días; el historial se conserva.</p>
           : <PdfView ruta={verDoc && p.doc_path ? p.doc_path : p.cot_path} />}
 
-        <h3>Recorrido</h3>
+        <h3>Recorrido <Ayuda titulo="Recorrido">Todo lo que pasó con este pedido, quién lo hizo y a qué hora.</Ayuda></h3>
         <ol className="recorrido">
           {eventos.map((e) => (
             <li key={e.id}>

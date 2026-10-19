@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/index.js'
+import Ayuda from '../components/Ayuda.jsx'
 
 // Tres accesos fijos, sin nombres de personas: Planta (sin PIN, solo equipos autorizados),
 // Facturación (PIN) y Administración (PIN)
@@ -28,7 +29,7 @@ export default function Personas() {
       <h2>Accesos</h2>
 
       <section className="acceso">
-        <h3>Planta</h3>
+        <h3>Planta <Ayuda titulo="Planta">Entra sin PIN, pero solo en las tablets que usted autorice aquí. Si pierde una, toque «Quitar todas las tablets» y autorice de nuevo las que siguen en uso.</Ayuda></h3>
         <p className="nota">Entra con un toque, sin PIN, pero solo en los equipos que usted autorice. Abra la app aquí, en la tablet de planta, y toque el botón una sola vez.</p>
         <div className="acciones">
           {autorizada
@@ -40,7 +41,7 @@ export default function Personas() {
       </section>
 
       <section className="acceso">
-        <h3>Facturación</h3>
+        <h3>Facturación <Ayuda titulo="Facturación">Entra con este PIN de 6 números en la computadora de Facturación. Puede cambiarlo cuando quiera; «Desactivar» le quita la entrada.</Ayuda></h3>
         <p className="nota">{fact ? 'Entra con PIN. Aquí puede cambiarlo.' : 'Todavía no tiene PIN. Elija uno de 6 números para que Facturación pueda entrar.'}</p>
         <div className="acciones">
           <input aria-label="PIN de Facturación" inputMode="numeric" maxLength={6} placeholder="6 números" value={pinFact} onChange={(e) => setPinFact(e.target.value.replace(/\D/g, ''))} />
@@ -51,7 +52,7 @@ export default function Personas() {
       </section>
 
       <section className="acceso">
-        <h3>Administración</h3>
+        <h3>Administración <Ayuda titulo="Administración">Solo usted. Ve todo: Facturación, Planta y estos accesos.</Ayuda></h3>
         <p className="nota">Solo usted. Puede cambiar su PIN.</p>
         <div className="acciones">
           <input aria-label="PIN nuevo de Administración" inputMode="numeric" maxLength={6} placeholder="6 números" value={pinAdmin} onChange={(e) => setPinAdmin(e.target.value.replace(/\D/g, ''))} />
