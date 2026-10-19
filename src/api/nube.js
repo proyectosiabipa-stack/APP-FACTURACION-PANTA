@@ -32,8 +32,17 @@ export function crearApiNube(url, llave) {
       if (!p) { await sb.auth.signOut(); throw new Error('Tu usuario está desactivado') }
       return p
     },
+    // El administrador conecta este equipo a la cuenta de un área; desde ahí entra solo, sin PIN
+    async conectarEquipo(rol) {
+      const cuenta = await this.usuarios({ accion: 'equipo', rol })
+      await sb.auth.signOut({ scope: 'local' })
+      const { error } = await sb.auth.signInWithPassword({ email: cuenta.correo, password: cuenta.clave })
+      fallo(error)
+      return cargarPerfil()
+    },
     sesionActual: cargarPerfil,
-    async salir() { await sb.auth.signOut(); perfil = null },
+    // Solo este equipo: los demás equipos de la misma área siguen conectados
+    async salir() { await sb.auth.signOut({ scope: 'local' }); perfil = null },
     async pedidos() {
       const desde = new Date(Date.now() - 30 * 864e5).toISOString()
       const { data, error } = await sb.from('pedidos').select('*')

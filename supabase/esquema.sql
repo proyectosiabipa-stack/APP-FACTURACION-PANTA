@@ -6,8 +6,10 @@ create table if not exists public.perfiles (
   nombre text not null,
   rol text not null check (rol in ('comercial', 'planta', 'admin')),
   activo boolean not null default true,
+  equipo boolean not null default false, -- cuenta de área (Planta / Facturación): el equipo queda conectado sin nombre ni PIN
   creado_en timestamptz not null default now()
 );
+alter table public.perfiles add column if not exists equipo boolean not null default false;
 
 create table if not exists public.pedidos (
   id bigint generated always as identity primary key,
@@ -71,7 +73,7 @@ returns table (nombre text, rol text, correo text)
 language sql stable security definer set search_path = public, auth as $$
   select p.nombre, p.rol, u.email::text
   from perfiles p join auth.users u on u.id = p.id
-  where p.activo
+  where p.activo and not p.equipo
   order by case p.rol when 'planta' then 1 when 'comercial' then 2 else 3 end, p.nombre
 $$;
 grant execute on function public.lista_ingreso() to anon, authenticated;

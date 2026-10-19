@@ -1,11 +1,11 @@
 // Modo de prueba: todo vive en este navegador (sin internet ni base de datos).
 // Sirve para mostrar y probar la app antes de conectarla a Supabase.
-const CLAVE = 'bipa-despacho-demo'
+const CLAVE = 'bipa-despacho-demo-2'
 const canal = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(CLAVE) : null
 
 const PERSONAS = [
-  { id: 'p1', nombre: 'Yohan Briceño', rol: 'planta', correo: 'yohan', activo: true },
-  { id: 'p2', nombre: 'Franci Suarez', rol: 'comercial', correo: 'franci', activo: true },
+  { id: 'p1', nombre: 'Planta', rol: 'planta', correo: 'planta', activo: true, equipo: true },
+  { id: 'p2', nombre: 'Facturación', rol: 'comercial', correo: 'facturacion', activo: true, equipo: true },
   { id: 'p3', nombre: 'Administrador', rol: 'admin', correo: 'admin', activo: true },
 ]
 
@@ -175,6 +175,7 @@ export function crearApiDemo() {
       await new Promise((r) => setTimeout(r, 150))
       return rpcs[nombre](args || {})
     },
+    async conectarEquipo() { throw new Error('En el modo de prueba no se conectan equipos') },
     async usuarios() { throw new Error('En el modo de prueba no se crean personas') },
     reiniciar() { localStorage.removeItem(CLAVE); sembrar() },
     get perfil() { return perfil },

@@ -23,7 +23,10 @@ export default function App() {
   if (perfil === undefined) return <div className="cargando">Cargando…</div>
   if (!perfil) return <Ingreso alEntrar={setPerfil} />
 
-  const salir = async () => { await api.salir(); setPerfil(null) }
+  const salir = async () => {
+    if (perfil.equipo && !confirm('Este equipo quedará desconectado y solo el administrador podrá conectarlo otra vez. ¿Salir?')) return
+    await api.salir(); setPerfil(null)
+  }
 
   return (
     <div className="app">

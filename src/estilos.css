@@ -176,3 +176,4 @@ h2 { font-size: 20px; } h3 { font-size: 17px; margin-top: 8px; }
   #zona-impresion img:last-child { page-break-after: auto; break-after: auto; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+.acciones { display: flex; gap: 12px; flex-wrap: wrap; margin: 8px 0 28px; }

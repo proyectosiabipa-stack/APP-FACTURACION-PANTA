@@ -70,6 +70,33 @@ Deno.serve(async (req) => {
 
     if (primerUso) return responder({ error: 'Primero crea el administrador' }, 400)
 
+    // Conectar un equipo (tablet de planta, computadora de facturación) a la cuenta de su área.
+    // La clave de esa cuenta es larga y al azar, nadie la escribe: el equipo queda conectado para siempre.
+    if (body.accion === 'equipo') {
+      const areas: Record<string, string> = { planta: 'Planta', comercial: 'Facturación' }
+      const rol = String(body.rol || '')
+      if (!areas[rol]) return responder({ error: 'Área no válida' }, 400)
+      const clave = `equipo_${rol}`
+      const { data: guardado } = await admin.from('_ajustes').select('valor').eq('clave', clave).maybeSingle()
+      if (guardado) {
+        const cuenta = JSON.parse(guardado.valor)
+        const { data: p } = await admin.from('perfiles').select('activo').eq('id', cuenta.id).maybeSingle()
+        if (p && !p.activo) return responder({ error: `Los equipos de ${areas[rol]} están desactivados. Actívelos primero.` }, 400)
+        if (p) return responder({ correo: cuenta.correo, clave: cuenta.clave })
+      }
+      const correo = `equipo-${rol}-${crypto.randomUUID().slice(0, 8)}@bipa-despacho.app`
+      const nueva = crypto.randomUUID() + crypto.randomUUID()
+      const { data, error } = await admin.auth.admin.createUser({ email: correo, password: nueva, email_confirm: true })
+      if (error) return responder({ error: error.message }, 400)
+      const { error: e2 } = await admin.from('perfiles').insert({ id: data.user.id, nombre: areas[rol], rol, equipo: true })
+      if (e2) {
+        await admin.auth.admin.deleteUser(data.user.id)
+        return responder({ error: e2.message }, 400)
+      }
+      await admin.from('_ajustes').upsert({ clave, valor: JSON.stringify({ id: data.user.id, correo, clave: nueva }) })
+      return responder({ correo, clave: nueva })
+    }
+
     if (body.accion === 'pin') {
       if (!pinValido(body.pin)) return responder({ error: 'El PIN debe tener 6 números' }, 400)
       const { error } = await admin.auth.admin.updateUserById(body.id, { password: claveDesdePin(body.pin) })

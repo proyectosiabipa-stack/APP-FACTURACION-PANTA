@@ -63,7 +63,8 @@ export default function Ingreso({ alEntrar }) {
         {api.modo === 'demo' && <p className="nota">Modo de prueba · el PIN de todos es 123456</p>}
         {!elegida ? (
           <>
-            {personas?.length !== 0 && <p>¿Quién eres?</p>}
+            {personas?.length !== 0 && api.modo !== 'demo' && <p className="nota">Este equipo no está conectado. Planta y facturación entran solas una vez que el administrador conecta el equipo.</p>}
+            {personas?.length !== 0 && <p>{api.modo === 'demo' ? '¿Quién eres?' : 'Administración'}</p>}
             {!personas && !error && <p className="nota">Cargando…</p>}
             {personas && personas.length === 0 && (
               <form className="primer-admin" onSubmit={(e) => { e.preventDefault(); crearAdministrador() }}>
