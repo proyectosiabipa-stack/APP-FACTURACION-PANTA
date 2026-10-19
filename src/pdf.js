@@ -5,7 +5,8 @@ import trabajador from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 pdfjs.GlobalWorkerOptions.workerSrc = trabajador
 
 export async function abrirPdf(fuente) {
-  const datos = fuente instanceof Blob ? { data: new Uint8Array(await fuente.arrayBuffer()) } : { url: fuente }
+  const datos = fuente instanceof Uint8Array ? { data: fuente }
+    : fuente instanceof Blob ? { data: new Uint8Array(await fuente.arrayBuffer()) } : { url: fuente }
   return pdfjs.getDocument(datos).promise
 }
 
@@ -47,8 +48,8 @@ export function analizarTexto(texto, nombreArchivo = '') {
 }
 
 // Imprime todas las páginas del PDF usando el diálogo del sistema (en Android aparece la impresora wifi)
-export async function imprimirPdf(url) {
-  const doc = await abrirPdf(url)
+export async function imprimirPdf(fuente) {
+  const doc = await abrirPdf(fuente)
   const zona = document.getElementById('zona-impresion')
   zona.innerHTML = ''
   for (let i = 1; i <= doc.numPages; i++) {

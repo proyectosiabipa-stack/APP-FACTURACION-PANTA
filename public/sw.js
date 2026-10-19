@@ -1,7 +1,40 @@
-// Service worker mínimo: permite instalar la app; siempre pide la versión nueva a la red.
-self.addEventListener('install', () => self.skipWaiting())
-self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()))
-self.addEventListener('fetch', () => {})
+// La app queda guardada en el equipo: abre al instante aunque el wifi esté lento.
+// La página principal se pide primero a la red (para recibir siempre la versión nueva) y, si tarda, se usa la guardada.
+const APP = 'bipa-app-v2'
+const BASE = ['./', './manifest.webmanifest', './icono-192.png', './icono-512.png']
+
+self.addEventListener('install', (e) => {
+  e.waitUntil(caches.open(APP).then((c) => c.addAll(BASE)).then(() => self.skipWaiting()))
+})
+
+self.addEventListener('activate', (e) => {
+  e.waitUntil(caches.keys()
+    .then((ks) => Promise.all(ks.filter((k) => k.startsWith('bipa-app-') && k !== APP).map((k) => caches.delete(k))))
+    .then(() => self.clients.claim()))
+})
+
+const deRed = (req, espera) => new Promise((ok, mal) => {
+  const t = espera ? setTimeout(mal, espera) : null
+  fetch(req).then((r) => {
+    clearTimeout(t)
+    if (r.ok) caches.open(APP).then((c) => c.put(req, r.clone()))
+    ok(r)
+  }, mal)
+})
+
+self.addEventListener('fetch', (e) => {
+  const req = e.request
+  const url = new URL(req.url)
+  if (req.method !== 'GET' || url.origin !== location.origin) return
+  if (req.mode === 'navigate') {
+    // Red primero (máximo 2,5 s); si no, la versión guardada
+    e.respondWith(deRed(req, 2500).catch(() => caches.match('./').then((r) => r || fetch(req))))
+    return
+  }
+  // Archivos de la app (llevan su versión en el nombre): guardados primero
+  e.respondWith(caches.match(req).then((r) => r || deRed(req)))
+})
+
 self.addEventListener('notificationclick', (e) => {
   e.notification.close()
   e.waitUntil(self.clients.matchAll({ type: 'window' }).then((cs) => (cs[0] ? cs[0].focus() : self.clients.openWindow('./'))))

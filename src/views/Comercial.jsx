@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api/index.js'
 import { usePedidos } from '../usePedidos.js'
 import PdfView from '../components/PdfView.jsx'
-import { analizarTexto, textoDePdf } from '../pdf.js'
 import { aviso, duracion, esHoy, hace, hora, sonar } from '../util.js'
 
 const COLUMNAS = [
@@ -55,7 +54,10 @@ export default function Comercial() {
     const abiertos = (pedidos || []).filter((p) => ['disponible', 'documento_listo'].includes(p.estado))
     const items = await Promise.all(pdfs.map(async (archivo) => {
       let datos = { tipo: 'cotizacion', numero: '', cliente: '', cotizacionRef: '' }
-      try { datos = analizarTexto(await textoDePdf(archivo), archivo.name) } catch { /* PDF sin texto: se llena a mano */ }
+      try {
+        const { analizarTexto, textoDePdf } = await import('../pdf.js')
+        datos = analizarTexto(await textoDePdf(archivo), archivo.name)
+      } catch { /* PDF sin texto: se llena a mano */ }
       let destino = ''
       if (datos.tipo === 'nota' || datos.tipo === 'fiscal') {
         // Los números de Profit no coinciden entre cotización y nota/factura: se une por cliente

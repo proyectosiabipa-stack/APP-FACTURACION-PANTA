@@ -2,14 +2,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api/index.js'
 import { usePedidos } from '../usePedidos.js'
 import PdfView from '../components/PdfView.jsx'
-import { imprimirPdf } from '../pdf.js'
+import { obtenerPdf, precargar } from '../archivos.js'
 import { aviso, esHoy, hace, mantenerPantalla, sonar } from '../util.js'
 
 const ATAJOS = ['No hay ', 'Solo hay ', 'Cambiar por ', 'Falta empaque de ']
 
 export default function Planta({ perfil }) {
   const [abierto, setAbierto] = useState(null)
-  const { pedidos, error, recargar } = usePedidos((p, antes) => {
+  const [fallo, setFallo] = useState('')
+  const { pedidos, error, recargar, ajustar } = usePedidos((p, antes) => {
     if (p.estado === 'por_revisar' && (!antes || antes.estado !== 'por_revisar')) {
       sonar(); aviso('Cotización nueva', p.cliente)
     }
@@ -37,13 +38,29 @@ export default function Planta({ perfil }) {
     }
   }, [pedidos])
 
+  // Los PDF de los pedidos abiertos se bajan apenas llegan, para que abran sin esperar
+  useEffect(() => {
+    if (!pedidos) return
+    const activos = pedidos.filter((p) => !['despachado', 'anulado'].includes(p.estado))
+    precargar(activos.flatMap((p) => [p.cot_path, p.doc_path]))
+  }, [pedidos])
+  useEffect(() => { const t = setTimeout(() => import('../pdf.js'), 1500); return () => clearTimeout(t) }, [])
+
   const actual = abierto && pedidos?.find((p) => p.id === abierto)
 
-  if (actual) return <Detalle pedido={actual} perfil={perfil} cerrar={() => { setAbierto(null); recargar() }} />
+  // Cambia en pantalla al instante y la nube se actualiza detrás; si falla, se avisa y se vuelve a cargar
+  const rapido = (id, cambios, fn) => {
+    ajustar(id, cambios)
+    setAbierto(null)
+    fn().catch((e) => { setFallo(`No se guardó: ${e.message}. Inténtelo de nuevo.`); recargar() })
+  }
+
+  if (actual) return <Detalle pedido={actual} perfil={perfil} rapido={rapido} cerrar={() => { setAbierto(null); recargar() }} />
 
   return (
     <div className="planta">
       {error && <div className="alerta-conexion">Sin conexión: {error}. Se reintenta solo.</div>}
+      {fallo && <div className="alerta-conexion" onClick={() => setFallo('')}>{fallo}</div>}
       {!pedidos && <p className="nota">Cargando…</p>}
       {pedidos && (
         <>
@@ -94,7 +111,7 @@ function Tarjeta({ p, abrir, perfil }) {
   )
 }
 
-function Detalle({ pedido: p, perfil, cerrar }) {
+function Detalle({ pedido: p, perfil, cerrar, rapido }) {
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState('')
   const [novedad, setNovedad] = useState(null)
@@ -112,7 +129,8 @@ function Detalle({ pedido: p, perfil, cerrar }) {
   }
 
   const imprimir = () => hacer(async () => {
-    await imprimirPdf(await api.urlArchivo(p.doc_path))
+    const [{ imprimirPdf }, datos] = await Promise.all([import('../pdf.js'), obtenerPdf(p.doc_path)])
+    await imprimirPdf(datos)
     if (p.estado === 'documento_listo') await api.rpc('marcar_impreso', { p_id: p.id })
     else await api.rpc('registrar_reimpresion', { p_id: p.id })
   }, false)
@@ -155,7 +173,7 @@ function Detalle({ pedido: p, perfil, cerrar }) {
         {revisando && !novedad && (
           <>
             <button className="btn grande ambar" disabled={ocupado} onClick={() => setNovedad(p.estado === 'en_espera' ? p.nota_planta : '')}>Hay novedad</button>
-            <button className="btn grande verde" disabled={ocupado} onClick={() => hacer(() => api.rpc('confirmar_disponible', { p_id: p.id }))}>Todo disponible</button>
+            <button className="btn grande verde" disabled={ocupado} onClick={() => rapido(p.id, { estado: 'disponible' }, () => api.rpc('confirmar_disponible', { p_id: p.id }))}>Todo disponible</button>
           </>
         )}
         {novedad !== null && (
@@ -165,7 +183,7 @@ function Detalle({ pedido: p, perfil, cerrar }) {
             <textarea id="novedad" rows={4} value={novedad} autoFocus onChange={(e) => setNovedad(e.target.value)} placeholder="Ej.: Del B-210 solo hay 6. Se puede cambiar por B-211." />
             <div className="fila-botones">
               <button className="btn" onClick={() => setNovedad(null)}>Cancelar</button>
-              <button className="btn ambar" disabled={ocupado || !novedad.trim()} onClick={() => hacer(() => api.rpc('reportar_novedad', { p_id: p.id, p_nota: novedad }))}>Enviar a Comercial</button>
+              <button className="btn ambar" disabled={ocupado || !novedad.trim()} onClick={() => rapido(p.id, { estado: 'en_espera', nota_planta: novedad }, () => api.rpc('reportar_novedad', { p_id: p.id, p_nota: novedad }))}>Enviar a Facturación</button>
             </div>
           </div>
         )}
@@ -179,7 +197,7 @@ function Detalle({ pedido: p, perfil, cerrar }) {
           <button className="btn grande" disabled={ocupado} onClick={imprimir}>Reimprimir</button>
         )}
         {['documento_listo', 'impreso'].includes(p.estado) && (
-          <button className="btn grande verde" disabled={ocupado} onClick={() => hacer(() => api.rpc('marcar_despachado', { p_id: p.id }))}>Pedido despachado</button>
+          <button className="btn grande verde" disabled={ocupado} onClick={() => rapido(p.id, { estado: 'despachado', despachado_en: new Date().toISOString() }, () => api.rpc('marcar_despachado', { p_id: p.id }))}>Pedido despachado</button>
         )}
         {p.estado === 'disponible' && <p className="nota">Ya la confirmaste. Comercial la está facturando; te avisa cuando esté lista.</p>}
       </div>

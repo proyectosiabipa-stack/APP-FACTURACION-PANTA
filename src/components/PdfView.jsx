@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { api } from '../api/index.js'
-import { abrirPdf } from '../pdf.js'
+import { obtenerPdf } from '../archivos.js'
 
 // Muestra todas las páginas de un PDF ajustadas al ancho, con botones para acercar
 export default function PdfView({ ruta }) {
@@ -15,8 +14,9 @@ export default function PdfView({ ruta }) {
     setEstado('cargando')
     ;(async () => {
       try {
-        const url = await api.urlArchivo(ruta)
-        const doc = await abrirPdf(url)
+        // El lector de PDF se carga solo la primera vez que hace falta
+        const [{ abrirPdf }, datos] = await Promise.all([import('../pdf.js'), obtenerPdf(ruta)])
+        const doc = await abrirPdf(datos)
         const ancho = cont.clientWidth - 2
         for (let i = 1; i <= doc.numPages && vivo; i++) {
           const pagina = await doc.getPage(i)

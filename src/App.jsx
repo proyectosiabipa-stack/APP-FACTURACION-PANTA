@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { api } from './api/index.js'
 import Ingreso from './views/Ingreso.jsx'
-import Planta from './views/Planta.jsx'
-import Comercial from './views/Comercial.jsx'
-import Personas from './views/Personas.jsx'
+import { lazy, Suspense } from 'react'
+// Cada pantalla se carga solo cuando se usa
+const Planta = lazy(() => import('./views/Planta.jsx'))
+const Comercial = lazy(() => import('./views/Comercial.jsx'))
+const Personas = lazy(() => import('./views/Personas.jsx'))
 import { activarSonido, pedirPermisoAvisos } from './util.js'
 
 export default function App() {
@@ -48,9 +50,11 @@ export default function App() {
         </div>
       )}
       <main className="contenido">
-        {vista === 'planta' && <Planta perfil={perfil} />}
-        {vista === 'comercial' && <Comercial perfil={perfil} />}
-        {vista === 'personas' && <Personas />}
+        <Suspense fallback={<div className="cargando">Cargando…</div>}>
+          {vista === 'planta' && <Planta perfil={perfil} />}
+          {vista === 'comercial' && <Comercial perfil={perfil} />}
+          {vista === 'personas' && <Personas />}
+        </Suspense>
       </main>
       <div id="zona-impresion" aria-hidden="true" />
     </div>

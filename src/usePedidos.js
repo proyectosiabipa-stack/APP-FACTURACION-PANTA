@@ -43,5 +43,12 @@ export function usePedidos(alLlegar) {
     }
   }, [cargar])
 
-  return { pedidos, error, recargar: cargar }
+  // Cambio inmediato en pantalla mientras la nube confirma (el tiempo real lo corrige si hiciera falta)
+  const ajustar = useCallback((id, cambios) => {
+    setPedidos((l) => l && l.map((p) => (p.id === id ? { ...p, ...cambios, actualizado_en: new Date().toISOString() } : p)))
+    const antes = previo.current?.get(id)
+    if (antes) previo.current.set(id, { ...antes, ...cambios })
+  }, [])
+
+  return { pedidos, error, recargar: cargar, ajustar }
 }
