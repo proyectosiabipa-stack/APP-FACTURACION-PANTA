@@ -252,6 +252,12 @@ end $$;
 revoke execute on function public._primer_admin(uuid, text) from public, anon, authenticated;
 grant execute on function public._primer_admin(uuid, text) to service_role;
 
+-- Ajustes privados (código de alta del primer administrador). Solo la función usuarios los lee.
+create table if not exists public._ajustes (clave text primary key, valor text not null);
+alter table public._ajustes enable row level security;
+revoke all on public._ajustes from public, anon, authenticated;
+grant all on public._ajustes to service_role;
+
 -- Tiempo real
 do $$ begin
   begin alter publication supabase_realtime add table public.pedidos; exception when duplicate_object then null; end;

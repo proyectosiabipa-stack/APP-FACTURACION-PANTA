@@ -1,6 +1,6 @@
 // Alta de personas, cambio de PIN y activar/desactivar. Solo el administrador.
 // Si todavía no hay nadie registrado, permite crear el primer administrador una sola vez,
-// y solo con el código de alta (secreto PRIMER_ADMIN_CODIGO) que va en el enlace de instalación.
+// y solo con el código de alta (tabla privada _ajustes) que va en el enlace de instalación.
 import { createClient } from 'npm:@supabase/supabase-js@2.49.4'
 
 const cors = {
@@ -34,7 +34,9 @@ Deno.serve(async (req) => {
     }
 
     if (primerUso) {
-      const codigo = Deno.env.get('PRIMER_ADMIN_CODIGO')
+      // Código de alta: tabla privada _ajustes; si no está, el secreto PRIMER_ADMIN_CODIGO
+      const { data: ajuste } = await admin.from('_ajustes').select('valor').eq('clave', 'primer_admin_codigo').maybeSingle()
+      const codigo = ajuste?.valor || Deno.env.get('PRIMER_ADMIN_CODIGO')
       if (!codigo || body.codigo !== codigo) return responder({ error: 'Abra el enlace de instalación que le enviaron' }, 403)
     }
 
