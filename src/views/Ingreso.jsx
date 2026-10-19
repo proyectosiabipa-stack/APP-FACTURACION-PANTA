@@ -34,7 +34,9 @@ export default function Ingreso({ alEntrar }) {
     setOcupado(true)
     setError('')
     try {
-      await api.usuarios({ accion: 'crear', nombre: primero.nombre.trim(), rol: 'admin', pin: primero.pin })
+      const codigo = new URLSearchParams(location.search).get('alta') || ''
+      await api.usuarios({ accion: 'crear', nombre: primero.nombre.trim(), rol: 'admin', pin: primero.pin, codigo })
+      history.replaceState(null, '', location.pathname)
       const lista = await api.listaIngreso()
       const yo = lista.find((p) => p.rol === 'admin')
       alEntrar(await api.entrar(yo.correo, primero.pin))

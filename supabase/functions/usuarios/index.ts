@@ -1,5 +1,6 @@
 // Alta de personas, cambio de PIN y activar/desactivar. Solo el administrador.
-// Si todavía no hay nadie registrado, permite crear el primer administrador.
+// Si todavía no hay nadie registrado, permite crear el primer administrador una sola vez,
+// y solo con el código de alta (secreto PRIMER_ADMIN_CODIGO) que va en el enlace de instalación.
 import { createClient } from 'npm:@supabase/supabase-js@2.49.4'
 
 const cors = {
@@ -32,6 +33,11 @@ Deno.serve(async (req) => {
       if (!perfil || perfil.rol !== 'admin' || !perfil.activo) return responder({ error: 'Solo el administrador puede hacer esto' }, 403)
     }
 
+    if (primerUso) {
+      const codigo = Deno.env.get('PRIMER_ADMIN_CODIGO')
+      if (!codigo || body.codigo !== codigo) return responder({ error: 'Abra el enlace de instalación que le enviaron' }, 403)
+    }
+
     const pinValido = (p: unknown) => typeof p === 'string' && /^\d{6}$/.test(p)
 
     if (body.accion === 'crear') {
@@ -45,7 +51,14 @@ Deno.serve(async (req) => {
         email: correo, password: claveDesdePin(body.pin), email_confirm: true,
       })
       if (error) return responder({ error: error.message }, 400)
-      const { error: e2 } = await admin.from('perfiles').insert({ id: data.user.id, nombre, rol })
+      let e2 = null
+      if (primerUso) {
+        // Con candado en la base: si dos personas lo intentan a la vez, solo una queda como administrador
+        const { data: quedo, error } = await admin.rpc('_primer_admin', { p_id: data.user.id, p_nombre: nombre })
+        e2 = error ?? (quedo ? null : { message: 'Ya hay un administrador registrado' })
+      } else {
+        ;({ error: e2 } = await admin.from('perfiles').insert({ id: data.user.id, nombre, rol }))
+      }
       if (e2) {
         await admin.auth.admin.deleteUser(data.user.id)
         return responder({ error: e2.message }, 400)

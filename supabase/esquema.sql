@@ -239,6 +239,19 @@ revoke execute on function public.crear_pedido(text, text, text), public.tomar_p
   public.marcar_impreso(bigint), public.registrar_reimpresion(bigint), public.marcar_despachado(bigint), public.anular_pedido(bigint, text),
   public.archivos_para_limpiar() from public, anon;
 
+-- Primer administrador: solo si no hay nadie, con candado para que no se creen dos a la vez.
+-- La llama la función «usuarios» (con su llave de servicio), nunca la app.
+create or replace function public._primer_admin(p_id uuid, p_nombre text)
+returns boolean language plpgsql security definer set search_path = public as $$
+begin
+  perform pg_advisory_xact_lock(hashtext('bipa_primer_admin'));
+  if exists (select 1 from perfiles) then return false; end if;
+  insert into perfiles (id, nombre, rol) values (p_id, p_nombre, 'admin');
+  return true;
+end $$;
+revoke execute on function public._primer_admin(uuid, text) from public, anon, authenticated;
+grant execute on function public._primer_admin(uuid, text) to service_role;
+
 -- Tiempo real
 do $$ begin
   begin alter publication supabase_realtime add table public.pedidos; exception when duplicate_object then null; end;
