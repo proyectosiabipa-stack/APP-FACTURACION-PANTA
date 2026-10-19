@@ -9,6 +9,7 @@ export default function Ingreso({ alEntrar }) {
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [ocupado, setOcupado] = useState(false)
+  const [primero, setPrimero] = useState({ nombre: '', pin: '', repetir: '' })
 
   useEffect(() => {
     api.listaIngreso().then(setPersonas).catch((e) => setError(e.message))
@@ -27,6 +28,24 @@ export default function Ingreso({ alEntrar }) {
     }
   }
 
+  // Primer uso: todavía no hay nadie, se crea el administrador y entra de una vez
+  const crearAdministrador = async () => {
+    if (primero.pin !== primero.repetir) { setError('Los dos PIN no son iguales'); return }
+    setOcupado(true)
+    setError('')
+    try {
+      await api.usuarios({ accion: 'crear', nombre: primero.nombre.trim(), rol: 'admin', pin: primero.pin })
+      const lista = await api.listaIngreso()
+      const yo = lista.find((p) => p.rol === 'admin')
+      alEntrar(await api.entrar(yo.correo, primero.pin))
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setOcupado(false)
+    }
+  }
+  const soloNumeros = (v) => v.replace(/\D/g, '').slice(0, 6)
+
   const tecla = (d) => {
     if (ocupado) return
     const nuevo = (pin + d).slice(0, 6)
@@ -42,9 +61,20 @@ export default function Ingreso({ alEntrar }) {
         {api.modo === 'demo' && <p className="nota">Modo de prueba · el PIN de todos es 123456</p>}
         {!elegida ? (
           <>
-            <p>¿Quién eres?</p>
+            {personas?.length !== 0 && <p>¿Quién eres?</p>}
             {!personas && !error && <p className="nota">Cargando…</p>}
-            {personas && personas.length === 0 && <p className="nota">Todavía no hay personas registradas.</p>}
+            {personas && personas.length === 0 && (
+              <form className="primer-admin" onSubmit={(e) => { e.preventDefault(); crearAdministrador() }}>
+                <p><b>Crear administrador</b></p>
+                <p className="nota">Todavía no hay nadie registrado. Escriba su nombre y elija su PIN de 6 números. Después agrega a los demás desde «Personas».</p>
+                <div className="campos">
+                  <label className="ancho">Nombre<input value={primero.nombre} autoComplete="off" onChange={(e) => setPrimero({ ...primero, nombre: e.target.value })} /></label>
+                  <label>PIN<input type="password" inputMode="numeric" autoComplete="new-password" value={primero.pin} onChange={(e) => setPrimero({ ...primero, pin: soloNumeros(e.target.value) })} /></label>
+                  <label>Repetir PIN<input type="password" inputMode="numeric" autoComplete="new-password" value={primero.repetir} onChange={(e) => setPrimero({ ...primero, repetir: soloNumeros(e.target.value) })} /></label>
+                </div>
+                <button className="btn verde" disabled={ocupado || !primero.nombre.trim() || primero.pin.length !== 6 || primero.repetir.length !== 6}>Crear administrador</button>
+              </form>
+            )}
             <div className="ingreso-personas">
               {personas?.map((p) => (
                 <button key={p.correo} className="persona" onClick={() => { setElegida(p); setError('') }}>

@@ -62,6 +62,7 @@ h2 { font-size: 20px; } h3 { font-size: 17px; margin-top: 8px; }
 .ingreso-caja p { margin: 0; }
 .ingreso-logo { width: 64px; height: 64px; border-radius: 16px; justify-self: center; }
 .ingreso-personas { display: grid; gap: 10px; text-align: left; }
+.primer-admin { display: grid; gap: 12px; text-align: left; }
 .persona { display: flex; align-items: center; gap: 14px; border: 1px solid var(--linea); background: var(--fondo); border-radius: 14px; padding: 12px 14px; }
 .persona b { display: block; font-family: var(--titulos); }
 .persona small { color: var(--suave); font-size: 14px; }
