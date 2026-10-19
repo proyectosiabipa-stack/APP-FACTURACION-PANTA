@@ -237,3 +237,10 @@ h2 { font-size: 20px; } h3 { font-size: 17px; margin-top: 8px; }
 .ingreso-logo { width: min(210px, 70%); height: auto; border-radius: 0; }
 .barra-acciones .ayuda { align-self: center; }
 .barra-comercial > .ayuda { align-self: center; margin: 0; }
+
+/* Avisos */
+.avisos { display: inline-flex; align-items: center; gap: 4px; }
+.btn-avisos { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 14px; background: #fff; color: var(--verde); border-color: #fff; }
+.avisos-ok, .avisos-no { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: #fff; }
+.avisos-no { opacity: .75; }
+@media (max-width: 640px) { .avisos-ok span, .btn-avisos { font-size: 13px; } }

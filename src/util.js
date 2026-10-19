@@ -1,3 +1,6 @@
+import { api } from './api/index.js'
+import { recibeDeLaNube } from './avisos.js'
+
 export const ESTADOS = {
   por_revisar: { texto: 'Por revisar', color: 'azul' },
   en_revision: { texto: 'Revisando en depósito', color: 'azul' },
@@ -59,15 +62,10 @@ export function activarSonido() {
   try { ctx ||= new (window.AudioContext || window.webkitAudioContext)(); ctx.resume() } catch { /* sin audio */ }
 }
 
-export async function pedirPermisoAvisos() {
-  try {
-    if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission()
-  } catch { /* el navegador no permite avisos */ }
-}
-
 export async function aviso(titulo, cuerpo) {
   try {
     if (!('Notification' in window) || Notification.permission !== 'granted' || document.visibilityState === 'visible') return
+    if (api.modo !== 'demo' && await recibeDeLaNube()) return // la nube ya manda este aviso
     const reg = await navigator.serviceWorker?.getRegistration()
     if (reg) reg.showNotification(titulo, { body: cuerpo, icon: 'icono-192.png', tag: titulo })
     else new Notification(titulo, { body: cuerpo })

@@ -6,7 +6,9 @@ import { lazy, Suspense } from 'react'
 const Planta = lazy(() => import('./views/Planta.jsx'))
 const Comercial = lazy(() => import('./views/Comercial.jsx'))
 const Personas = lazy(() => import('./views/Personas.jsx'))
-import { activarSonido, pedirPermisoAvisos } from './util.js'
+import { activarSonido } from './util.js'
+import { quitarAvisos } from './avisos.js'
+import BotonAvisos from './components/BotonAvisos.jsx'
 
 export default function App() {
   const [perfil, setPerfil] = useState(undefined)
@@ -17,7 +19,7 @@ export default function App() {
   useEffect(() => {
     if (!perfil) return
     setVista(perfil.rol === 'planta' ? 'planta' : 'comercial')
-    const despertar = () => { activarSonido(); pedirPermisoAvisos() }
+    const despertar = () => activarSonido()
     window.addEventListener('pointerdown', despertar, { once: true })
     return () => window.removeEventListener('pointerdown', despertar)
   }, [perfil])
@@ -25,7 +27,7 @@ export default function App() {
   if (perfil === undefined) return <div className="cargando">Cargando…</div>
   if (!perfil) return <Ingreso alEntrar={setPerfil} />
 
-  const salir = async () => { await api.salir(); setPerfil(null) }
+  const salir = async () => { await quitarAvisos(); await api.salir(); setPerfil(null) }
 
   return (
     <div className="app">
@@ -39,6 +41,7 @@ export default function App() {
           </nav>
         )}
         <div className="quien">
+          <BotonAvisos />
           <span>{perfil.nombre}</span>
           <button className="btn-texto" onClick={salir}>Salir</button>
         </div>

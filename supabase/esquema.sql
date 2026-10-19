@@ -280,3 +280,63 @@ create policy documentos_subir on storage.objects for insert to authenticated
 drop policy if exists documentos_borrar on storage.objects;
 create policy documentos_borrar on storage.objects for delete to authenticated
   using (bucket_id = 'documentos' and public.mi_rol() in ('comercial', 'admin'));
+
+-- Avisos al teléfono o la PC (aunque la app esté cerrada).
+-- Las llaves de envío (vapid_publica, vapid_privada) y aviso_secreto viven en _ajustes; se cargan aparte, nunca en este archivo.
+create extension if not exists pg_net;
+
+create table if not exists public.suscripciones (
+  endpoint text primary key,
+  perfil_id uuid not null references public.perfiles(id) on delete cascade,
+  rol text not null,
+  p256dh text not null,
+  auth text not null,
+  creado_en timestamptz not null default now()
+);
+alter table public.suscripciones enable row level security;
+revoke all on public.suscripciones from public, anon, authenticated;
+grant all on public.suscripciones to service_role;
+
+create or replace function public.guardar_suscripcion(p_endpoint text, p_p256dh text, p_auth text)
+returns void language plpgsql security definer set search_path = public as $$
+declare r text := public.mi_rol();
+begin
+  if r is null then raise exception 'Inicia sesión de nuevo'; end if;
+  insert into suscripciones (endpoint, perfil_id, rol, p256dh, auth) values (p_endpoint, auth.uid(), r, p_p256dh, p_auth)
+  on conflict (endpoint) do update set perfil_id = excluded.perfil_id, rol = excluded.rol, p256dh = excluded.p256dh, auth = excluded.auth, creado_en = now();
+end $$;
+create or replace function public.quitar_suscripcion(p_endpoint text)
+returns void language sql security definer set search_path = public as $$
+  delete from suscripciones where endpoint = p_endpoint and perfil_id = auth.uid()
+$$;
+revoke execute on function public.guardar_suscripcion(text, text, text), public.quitar_suscripcion(text) from public, anon;
+grant execute on function public.guardar_suscripcion(text, text, text), public.quitar_suscripcion(text) to authenticated;
+
+-- Cada cambio de estado de un pedido llama a la función «avisar», que manda el aviso a quien corresponde
+create or replace function public._avisar_cambio() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare tipo text;
+begin
+  if tg_op = 'INSERT' then tipo := 'nueva';
+  elsif new.estado is distinct from old.estado then
+    tipo := case
+      when new.estado = 'por_revisar' and old.estado = 'en_espera' then 'respuesta'
+      when new.estado in ('en_espera', 'disponible', 'documento_listo', 'despachado', 'anulado') then new.estado
+    end;
+  end if;
+  if tipo is null then return new; end if;
+  perform net.http_post(
+    url := 'https://lnarqkcvwwmlxwpwzajh.supabase.co/functions/v1/avisar',
+    headers := jsonb_build_object('Content-Type', 'application/json',
+      'x-aviso', (select valor from _ajustes where clave = 'aviso_secreto')),
+    body := jsonb_build_object('tipo', tipo, 'cliente', new.cliente, 'nota', new.nota_planta,
+      'tipo_doc', new.tipo_doc, 'id', new.id, 'autor', auth.uid())
+  );
+  return new;
+exception when others then
+  return new; -- un aviso que falla nunca frena el pedido
+end $$;
+revoke execute on function public._avisar_cambio() from public, anon, authenticated;
+drop trigger if exists pedidos_avisar on public.pedidos;
+create trigger pedidos_avisar after insert or update of estado on public.pedidos
+  for each row execute function public._avisar_cambio();
