@@ -237,7 +237,7 @@ grant execute on function public.crear_pedido(text, text, text), public.tomar_pe
 revoke execute on function public.crear_pedido(text, text, text), public.tomar_pedido(bigint), public.confirmar_disponible(bigint),
   public.reportar_novedad(bigint, text), public.responder_novedad(bigint, text, text), public.adjuntar_documento(bigint, text, text, text),
   public.marcar_impreso(bigint), public.registrar_reimpresion(bigint), public.marcar_despachado(bigint), public.anular_pedido(bigint, text),
-  public.archivos_para_limpiar() from anon;
+  public.archivos_para_limpiar() from public, anon;
 
 -- Tiempo real
 do $$ begin
