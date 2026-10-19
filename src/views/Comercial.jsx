@@ -23,10 +23,10 @@ export default function Comercial() {
   const { pedidos, error, recargar } = usePedidos((p, antes) => {
     if (!antes) return
     if (p.estado === 'en_espera' && antes.estado !== 'en_espera') {
-      sonar('alerta'); aviso(`Novedad en la cotización ${p.numero}`, p.nota_planta || '')
+      sonar('alerta'); aviso(`Novedad: ${p.cliente}`, p.nota_planta || '')
     }
     if (p.estado === 'disponible' && antes.estado !== 'disponible') {
-      sonar(); aviso(`Cotización ${p.numero}: todo disponible`, 'Lista para facturar')
+      sonar(); aviso(`${p.cliente}: todo disponible`, 'Lista para facturar')
     }
   })
 
@@ -58,12 +58,13 @@ export default function Comercial() {
       try { datos = analizarTexto(await textoDePdf(archivo), archivo.name) } catch { /* PDF sin texto: se llena a mano */ }
       let destino = ''
       if (datos.tipo === 'nota' || datos.tipo === 'fiscal') {
-        const ref = datos.cotizacionRef.replace(/^0+/, '')
-        const igual = abiertos.find((p) => ref && p.numero.replace(/^0+/, '') === ref) ||
-          (abiertos.length === 1 ? abiertos[0] : null)
+        // Los números de Profit no coinciden entre cotización y nota/factura: se une por cliente
+        const cli = (datos.cliente || '').trim().toLowerCase()
+        const mismos = abiertos.filter((p) => cli && (p.cliente || '').trim().toLowerCase() === cli)
+        const igual = (mismos.length === 1 ? mismos[0] : null) || (abiertos.length === 1 ? abiertos[0] : null)
         destino = igual ? String(igual.id) : ''
       }
-      return { archivo, tipo: datos.tipo || 'cotizacion', numero: datos.numero, cliente: datos.cliente, destino }
+      return { archivo, tipo: datos.tipo || 'cotizacion', cliente: datos.cliente, destino }
     }))
     setPorSubir(items)
   }
@@ -96,13 +97,12 @@ export default function Comercial() {
             {c.lista.length === 0 && <p className="nota">Vacío</p>}
             {c.lista.map((p) => (
               <button key={p.id} className={`mini-tarjeta ${p.estado === 'en_espera' ? 'alerta' : ''}`} onClick={() => setAbierto(p.id)}>
-                <b>{p.numero}</b>
-                <span className="cliente">{p.cliente || 'Sin cliente'}</span>
+                <b>{p.cliente || 'Sin cliente'}</b>
                 {p.estado === 'en_espera' && <span className="cita">«{p.nota_planta}»</span>}
                 {p.estado === 'en_revision' && <span className="nota">Revisando en el depósito</span>}
                 {p.estado === 'por_revisar' && p.respuesta_comercial && <span className="nota">Respondiste; planta la revisa otra vez</span>}
                 {['documento_listo', 'impreso'].includes(p.estado) && (
-                  <span className="nota">{p.tipo_doc === 'nota' ? `Nota ${p.doc_numero || ''}` : `Factura ${p.doc_numero || ''}`} · {p.estado === 'impreso' ? (p.tipo_doc === 'nota' ? 'impresa' : 'recibida') : (p.tipo_doc === 'nota' ? 'por imprimir' : 'por buscar')}</span>
+                  <span className="nota">{p.tipo_doc === 'nota' ? 'Nota' : 'Factura'} · {p.estado === 'impreso' ? (p.tipo_doc === 'nota' ? 'impresa' : 'recibida') : (p.tipo_doc === 'nota' ? 'por imprimir' : 'por buscar')}</span>
                 )}
                 <span className="nota">{c.id === 'hechos' ? `${hora(p.despachado_en)} · ${duracion(p.creado_en, p.despachado_en)}` : hace(p.actualizado_en)}</span>
               </button>
@@ -125,7 +125,7 @@ function Subida({ items: inicial, pedidos, cerrar }) {
   const destinos = pedidos.filter((p) => ['disponible', 'documento_listo'].includes(p.estado))
   const cambiar = (i, campo, valor) => setItems((l) => l.map((x, j) => (j === i ? { ...x, [campo]: valor } : x)))
 
-  const faltante = items.find((x) => x.tipo === 'cotizacion' ? !x.numero.trim() : !x.destino)
+  const faltante = items.find((x) => x.tipo === 'cotizacion' ? !(x.cliente || '').trim() : !x.destino)
 
   const guardar = async () => {
     setOcupado(true); setError('')
@@ -133,8 +133,8 @@ function Subida({ items: inicial, pedidos, cerrar }) {
       for (const [i, x] of items.entries()) {
         if (x.hecho) continue
         const ruta = await api.subirArchivo(x.archivo)
-        if (x.tipo === 'cotizacion') await api.rpc('crear_pedido', { p_numero: x.numero, p_cliente: x.cliente, p_cot_path: ruta })
-        else await api.rpc('adjuntar_documento', { p_id: Number(x.destino), p_tipo: x.tipo, p_numero: x.numero, p_path: ruta })
+        if (x.tipo === 'cotizacion') await api.rpc('crear_pedido', { p_numero: '', p_cliente: x.cliente, p_cot_path: ruta })
+        else await api.rpc('adjuntar_documento', { p_id: Number(x.destino), p_tipo: x.tipo, p_numero: '', p_path: ruta })
         setItems((l) => l.map((y, j) => (j === i ? { ...y, hecho: true } : y)))
       }
       cerrar()
@@ -157,9 +157,6 @@ function Subida({ items: inicial, pedidos, cerrar }) {
                   <option value="fiscal">Factura fiscal (ya impresa aquí)</option>
                 </select>
               </label>
-              <label>Número
-                <input value={x.numero} onChange={(e) => cambiar(i, 'numero', e.target.value)} disabled={x.hecho} inputMode="numeric" />
-              </label>
               {x.tipo === 'cotizacion' ? (
                 <label className="ancho">Cliente
                   <input value={x.cliente} onChange={(e) => cambiar(i, 'cliente', e.target.value)} disabled={x.hecho} />
@@ -168,14 +165,14 @@ function Subida({ items: inicial, pedidos, cerrar }) {
                 <label className="ancho">De cuál cotización
                   <select value={x.destino} onChange={(e) => cambiar(i, 'destino', e.target.value)} disabled={x.hecho}>
                     <option value="">Elige la cotización…</option>
-                    {destinos.map((p) => <option key={p.id} value={p.id}>{p.numero} · {p.cliente}</option>)}
+                    {destinos.map((p) => <option key={p.id} value={p.id}>{p.cliente || 'Sin cliente'} · subida {hora(p.creado_en)}</option>)}
                   </select>
                 </label>
               )}
             </div>
           </div>
         ))}
-        {faltante && <p className="nota">{faltante.tipo === 'cotizacion' ? 'Falta el número de una cotización.' : 'Elige a qué cotización va cada nota o factura.'}</p>}
+        {faltante && <p className="nota">{faltante.tipo === 'cotizacion' ? 'Falta el cliente de una cotización.' : 'Elige a qué cotización va cada nota o factura.'}</p>}
         {error && <p className="error">{error}</p>}
         <div className="fila-botones">
           <button className="btn" onClick={cerrar} disabled={ocupado}>Cancelar</button>
@@ -210,15 +207,13 @@ function Detalle({ p, cerrar }) {
   })
 
   const subirNota = (archivo) => hacer(async () => {
-    let numero = ''
-    try { numero = analizarTexto(await textoDePdf(archivo), archivo.name).numero } catch { /* sin texto */ }
     const ruta = await api.subirArchivo(archivo)
-    await api.rpc('adjuntar_documento', { p_id: p.id, p_tipo: 'nota', p_numero: numero, p_path: ruta })
+    await api.rpc('adjuntar_documento', { p_id: p.id, p_tipo: 'nota', p_numero: '', p_path: ruta })
   })
 
   const enviarFiscal = () => hacer(async () => {
     const ruta = fiscal.archivo ? await api.subirArchivo(fiscal.archivo) : null
-    await api.rpc('adjuntar_documento', { p_id: p.id, p_tipo: 'fiscal', p_numero: fiscal.numero, p_path: ruta })
+    await api.rpc('adjuntar_documento', { p_id: p.id, p_tipo: 'fiscal', p_numero: '', p_path: ruta })
   })
 
   return (
@@ -226,8 +221,8 @@ function Detalle({ p, cerrar }) {
       <aside className="panel">
         <div className="panel-cabeza">
           <div>
-            <h2>Cotización {p.numero}</h2>
-            <span className="nota">{p.cliente}</span>
+            <h2>{p.cliente || 'Sin cliente'}</h2>
+            <span className="nota">Cotización subida {hora(p.creado_en)}</span>
           </div>
           <button className="btn-texto" onClick={cerrar}>Cerrar</button>
         </div>
@@ -254,14 +249,12 @@ function Detalle({ p, cerrar }) {
           {p.estado === 'disponible' && !fiscal && (
             <div className="fila-botones">
               <button className="btn verde" disabled={ocupado} onClick={() => nota.current.click()}>Subir nota de entrega</button>
-              <button className="btn" disabled={ocupado} onClick={() => setFiscal({ numero: '', archivo: null })}>Ya imprimí la factura fiscal</button>
+              <button className="btn" disabled={ocupado} onClick={() => setFiscal({ archivo: null })}>Ya imprimí la factura fiscal</button>
               <input ref={nota} type="file" accept="application/pdf" hidden onChange={(e) => e.target.files[0] && subirNota(e.target.files[0])} />
             </div>
           )}
           {fiscal && (
             <div className="caja-novedad">
-              <label htmlFor="num-fiscal">Número de la factura fiscal</label>
-              <input id="num-fiscal" value={fiscal.numero} inputMode="numeric" onChange={(e) => setFiscal({ ...fiscal, numero: e.target.value })} />
               <label className="archivo">
                 <input type="file" accept="application/pdf" onChange={(e) => setFiscal({ ...fiscal, archivo: e.target.files[0] || null })} />
                 {fiscal.archivo ? fiscal.archivo.name : 'Adjuntar copia en PDF (opcional)'}
@@ -292,7 +285,7 @@ function Detalle({ p, cerrar }) {
         {p.doc_path && !p.archivos_borrados && (
           <div className="cambiar-pdf">
             <button className={!verDoc ? 'activa' : ''} onClick={() => setVerDoc(false)}>Cotización</button>
-            <button className={verDoc ? 'activa' : ''} onClick={() => setVerDoc(true)}>{p.tipo_doc === 'nota' ? 'Nota de entrega' : 'Factura'} {p.doc_numero || ''}</button>
+            <button className={verDoc ? 'activa' : ''} onClick={() => setVerDoc(true)}>{p.tipo_doc === 'nota' ? 'Nota de entrega' : 'Factura'}</button>
           </div>
         )}
         {p.archivos_borrados ? <p className="nota">Los PDF de este pedido se borraron a los 15 días; el historial se conserva.</p>
@@ -322,8 +315,8 @@ function Historial({ cerrar }) {
     try {
       const filas = await api.historial(new Date(`${desde}T00:00:00`).toISOString(), new Date(`${hasta}T23:59:59`).toISOString())
       const f = (iso) => (iso ? new Date(iso).toLocaleString('es-VE') : '')
-      const enc = ['Cotización', 'Cliente', 'Estado', 'Documento', 'Número documento', 'Subida', 'Revisada', 'Disponible', 'Documento enviado', 'Impresa', 'Despachada', 'Minutos hasta despacho', 'Novedad de planta', 'Respuesta de Comercial']
-      const datos = filas.map((p) => [p.numero, p.cliente, p.estado, p.tipo_doc === 'nota' ? 'Nota de entrega' : p.tipo_doc === 'fiscal' ? 'Factura fiscal' : '', p.doc_numero,
+      const enc = ['Cliente', 'Estado', 'Documento', 'Subida', 'Revisada', 'Disponible', 'Documento enviado', 'Impresa', 'Despachada', 'Minutos hasta despacho', 'Novedad de planta', 'Respuesta de Comercial']
+      const datos = filas.map((p) => [p.cliente, p.estado, p.tipo_doc === 'nota' ? 'Nota de entrega' : p.tipo_doc === 'fiscal' ? 'Factura fiscal' : '',
         f(p.creado_en), f(p.revisado_en), f(p.disponible_en), f(p.documento_en), f(p.impreso_en), f(p.despachado_en),
         p.despachado_en ? Math.round((new Date(p.despachado_en) - new Date(p.creado_en)) / 60000) : '', p.nota_planta, p.respuesta_comercial])
       const csv = '﻿' + [enc, ...datos].map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')).join('\r\n')

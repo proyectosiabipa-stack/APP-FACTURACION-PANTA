@@ -11,11 +11,11 @@ export default function Planta({ perfil }) {
   const [abierto, setAbierto] = useState(null)
   const { pedidos, error, recargar } = usePedidos((p, antes) => {
     if (p.estado === 'por_revisar' && (!antes || antes.estado !== 'por_revisar')) {
-      sonar(); aviso('Cotización nueva', `${p.numero} · ${p.cliente}`)
+      sonar(); aviso('Cotización nueva', p.cliente)
     }
     if (p.estado === 'documento_listo' && antes?.estado !== 'documento_listo') {
       sonar()
-      aviso(p.tipo_doc === 'nota' ? 'Nota de entrega lista para imprimir' : 'Factura fiscal lista en Comercial', `${p.numero} · ${p.cliente}`)
+      aviso(p.tipo_doc === 'nota' ? 'Nota de entrega lista para imprimir' : 'Factura fiscal lista en Comercial', p.cliente)
     }
   })
 
@@ -86,11 +86,10 @@ function Tarjeta({ p, abrir, perfil }) {
   return (
     <button className={`tarjeta borde-${clase}`} onClick={() => abrir(p.id)}>
       <div className="fila">
-        <b className="numero">Cotización {p.numero}</b>
+        <b className="numero">{p.cliente || 'Sin nombre de cliente'}</b>
         <span className={`etiqueta ${clase}`}>{etiqueta}</span>
       </div>
-      <span className="cliente">{p.cliente || 'Sin nombre de cliente'}</span>
-      <span className="nota">{p.doc_numero ? `${p.tipo_doc === 'nota' ? 'Nota' : 'Factura'} ${p.doc_numero} · ` : ''}{hace(p.actualizado_en)}</span>
+      <span className="nota">{hace(p.actualizado_en)}</span>
     </button>
   )
 }
@@ -126,8 +125,8 @@ function Detalle({ pedido: p, perfil, cerrar }) {
       <div className="detalle-cabeza">
         <button className="btn-volver" onClick={cerrar}>← Volver</button>
         <div>
-          <h2>Cotización {p.numero}</h2>
-          <span className="nota">{p.cliente}</span>
+          <h2>{p.cliente || 'Sin nombre de cliente'}</h2>
+          <span className="nota">Cotización</span>
         </div>
       </div>
 
@@ -139,13 +138,13 @@ function Detalle({ pedido: p, perfil, cerrar }) {
       )}
       {otro && <div className="mensaje">Otra persona la está revisando. Puedes verla, pero mejor no confirmar dos veces.</div>}
       {p.estado === 'documento_listo' && p.tipo_doc === 'fiscal' && (
-        <div className="mensaje verde"><b>Factura fiscal {p.doc_numero || ''} impresa en Comercial.</b> Pásala buscando y luego marca «Ya la tengo».</div>
+        <div className="mensaje verde"><b>Factura fiscal impresa en Comercial.</b> Pásala buscando y luego marca «Ya la tengo».</div>
       )}
 
       {p.doc_path && (
         <div className="cambiar-pdf">
           <button className={!verDoc ? 'activa' : ''} onClick={() => setVerDoc(false)}>Cotización</button>
-          <button className={verDoc ? 'activa' : ''} onClick={() => setVerDoc(true)}>{p.tipo_doc === 'nota' ? 'Nota de entrega' : 'Factura'} {p.doc_numero || ''}</button>
+          <button className={verDoc ? 'activa' : ''} onClick={() => setVerDoc(true)}>{p.tipo_doc === 'nota' ? 'Nota de entrega' : 'Factura'}</button>
         </div>
       )}
       <PdfView ruta={verDoc && p.doc_path ? p.doc_path : p.cot_path} />
